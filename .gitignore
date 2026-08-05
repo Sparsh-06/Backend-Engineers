@@ -39,3 +39,14 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local planning notes and agent instructions
+*.md
+AGENTS.md
+CLAUDE.md
+
+# Local captured screenshots
+screenshots/
+screenshot-*.png
+screenshot-*.jpg
+screenshot-*.jpeg
