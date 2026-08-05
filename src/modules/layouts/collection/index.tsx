@@ -121,7 +121,7 @@ export default function Collection({ label, title, intro, items }: Props) {
       </section>
       <footer className="border-t border-black/15 px-5 py-8 sm:px-8 lg:px-12">
         <div className="mx-auto flex max-w-6xl flex-col justify-between gap-4 text-xs font-medium text-black/55 sm:flex-row">
-          <span>© {new Date().getFullYear()} B.Engineers</span>
+          <span>© {new Date().getFullYear()} Backend Engineer</span>
           <span>Backend engineering, cloud, and systems thinking in one place.</span>
         </div>
       </footer>

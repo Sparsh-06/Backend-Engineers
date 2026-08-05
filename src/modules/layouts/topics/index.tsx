@@ -1,10 +1,33 @@
 import Link from "next/link";
 import Navbar from "@/modules/components/common/navbar";
-import { topicGroups } from "@/data/topics";
+import { visibleTopicGroups } from "@/data/topics";
+
+const breadcrumbSchema = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    {
+      "@type": "ListItem",
+      position: 1,
+      name: "Backend Engineer",
+      item: "https://www.backendengineer.in",
+    },
+    {
+      "@type": "ListItem",
+      position: 2,
+      name: "Topics",
+      item: "https://www.backendengineer.in/topics",
+    },
+  ],
+};
 
 export default function TopicsHub() {
   return (
     <main className="overflow-hidden">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+      />
       <Navbar />
       <section className="px-5 pb-16 pt-36 sm:px-8 lg:px-12">
         <div className="mx-auto max-w-6xl">
@@ -38,7 +61,7 @@ export default function TopicsHub() {
         </div>
       </section>
 
-      {topicGroups.map((group, index) => (
+      {visibleTopicGroups.map((group, index) => (
         <section
           key={group.slug}
           className={`border-t border-black/10 px-5 py-12 sm:px-8 lg:px-12 ${index % 2 === 0 ? "bg-white/20" : "bg-transparent"}`}
@@ -49,7 +72,7 @@ export default function TopicsHub() {
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#ff4d00]">
                   {group.keywords.join(" · ")}
                 </p>
-                <h2 className="mt-3 text-3xl font-semibold tracking-[-0.05em] sm:text-4xl">
+                <h2 className="mt-3 text-3xl font-semibold tracking-tighter sm:text-4xl">
                   {group.title}
                 </h2>
                 <p className="mt-4 max-w-3xl text-base leading-relaxed text-black/60">
@@ -103,41 +126,10 @@ export default function TopicsHub() {
         </section>
       ))}
 
-      <section className="px-5 pb-20 pt-8 sm:px-8 lg:px-12">
-        <div className="mx-auto grid max-w-6xl gap-4 rounded-[2rem] border border-black/10 bg-white/35 p-6 backdrop-blur sm:p-8 lg:grid-cols-[1fr_1.2fr] lg:gap-8">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#ff4d00]">
-              Built for growth
-            </p>
-            <h2 className="mt-4 max-w-md text-3xl font-semibold tracking-[-0.05em] sm:text-4xl">
-              A searchable index today, lesson pages tomorrow.
-            </h2>
-          </div>
-          <div className="grid gap-3 md:grid-cols-3">
-            {[
-              ["SEO-friendly titles", "Every cluster uses precise, searchable language."],
-              ["Clear hierarchy", "Topics are grouped by phase and learning intent."],
-              ["Internal links", "Each page can point back to the larger map."],
-            ].map(([title, description]) => (
-              <div
-                key={title}
-                className="rounded-[1.5rem] border border-black/10 bg-[#eee9e3]/70 p-5"
-              >
-                <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-black/65">
-                  {title}
-                </h3>
-                <p className="mt-3 text-sm leading-relaxed text-black/60">
-                  {description}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       <footer className="border-t border-black/15 px-5 py-8 sm:px-8 lg:px-12">
         <div className="mx-auto flex max-w-6xl flex-col justify-between gap-4 text-xs font-medium text-black/55 sm:flex-row">
-          <span>© {new Date().getFullYear()} B.Engineers</span>
+          <span>© {new Date().getFullYear()} Backend Engineer</span>
           <span>Backend engineering, cloud, and systems thinking in one place.</span>
         </div>
       </footer>

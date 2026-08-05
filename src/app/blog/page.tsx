@@ -4,6 +4,42 @@ export const metadata: Metadata = {
   title: "Backend Engineering Blog",
   description:
     "Field notes and essays about backend engineering, cloud infrastructure, and system design.",
+  keywords: [
+    "backend engineering blog",
+    "system design essays",
+    "cloud infrastructure",
+    "field notes",
+    "engineering guides",
+  ],
+  alternates: { canonical: "/blog" },
+  authors: [{ name: "Sparsh Sharma" }],
+  creator: "Sparsh Sharma",
+  publisher: "Backend Engineer",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
+  openGraph: {
+    type: "website",
+    title: "Backend Engineering Blog",
+    description:
+      "Field notes and essays about backend engineering, cloud infrastructure, and system design.",
+    url: "/blog",
+    siteName: "Backend Engineer",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Backend Engineering Blog",
+    description:
+      "Field notes and essays about backend engineering, cloud infrastructure, and system design.",
+  },
 };
 
 export default function BlogPage() {

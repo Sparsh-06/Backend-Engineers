@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://backendengineers.dev"),
-  title: { default: "B.Engineers — Backend Engineering, Made Clear", template: "%s | B.Engineers" },
+  metadataBase: new URL("https://www.backendengineer.in"),
+  title: { default: "Backend Engineer — Backend Engineering, Made Clear", template: "%s | Backend Engineer" },
   description: "Master complex backend engineering, cloud architecture, and distributed systems with clear, visual breakdowns and step-by-step technical guides.",
   keywords: [
     "Backend Engineering",
@@ -17,8 +17,22 @@ export const metadata: Metadata = {
   icons: {
     icon: '/favicon.png?v=2',
   },
-  openGraph: { type: "website", siteName: "B.Engineers", title: "B.Engineers — Backend Engineering, Made Clear", description: "Visual guides, system maps, and field notes for backend engineers." },
-  twitter: { card: "summary_large_image", title: "B.Engineers — Backend Engineering, Made Clear", description: "Visual guides, system maps, and field notes for backend engineers." },
+  authors: [{ name: "Backend Engineer", url: "https://www.backendengineer.in" }],
+  creator: "Sparsh Sharma",
+  publisher: "Sparsh Sharma",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
+  openGraph: { type: "website", siteName: "Backend Engineer", title: "Backend Engineer — Backend Engineering, Made Clear", description: "Visual guides, system maps, and field notes for backend engineers.", url: "https://www.backendengineer.in" },
+  twitter: { card: "summary_large_image", title: "Backend Engineer — Backend Engineering, Made Clear", description: "Visual guides, system maps, and field notes for backend engineers." },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

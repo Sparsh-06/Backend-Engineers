@@ -4,6 +4,42 @@ export const metadata: Metadata = {
   title: "System Architecture",
   description:
     "Interactive system design explanations and backend architecture patterns for scalable services.",
+  keywords: [
+    "system architecture",
+    "backend architecture",
+    "scalable services",
+    "system design",
+    "request flow",
+  ],
+  alternates: { canonical: "/architecture" },
+  authors: [{ name: "Sparsh Sharma" }],
+  creator: "Sparsh Sharma",
+  publisher: "Backend Engineer",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
+  openGraph: {
+    type: "website",
+    title: "System Architecture",
+    description:
+      "Interactive system design explanations and backend architecture patterns for scalable services.",
+    url: "/architecture",
+    siteName: "Backend Engineer",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "System Architecture",
+    description:
+      "Interactive system design explanations and backend architecture patterns for scalable services.",
+  },
 };
 
 export default function ArchitecturePage() {

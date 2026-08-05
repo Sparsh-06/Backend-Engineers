@@ -27,6 +27,14 @@ export type TopicGroup = {
   topics: TopicItem[];
 };
 
+const publishedTopicSlugs = new Set([
+  "nodejs-event-loop",
+  "nodejs-async-io",
+  "nodejs-worker-threads",
+  "nodejs-streams",
+  "nodejs-gc",
+]);
+
 export const topicGroups: TopicGroup[] = [
   {
     slug: "language-runtimes",
@@ -562,7 +570,14 @@ export const topicGroups: TopicGroup[] = [
   },
 ];
 
-export const topicGroupsFlat = topicGroups.flatMap((group) =>
+export const visibleTopicGroups = topicGroups
+  .map((group) => ({
+    ...group,
+    topics: group.topics.filter((topic) => publishedTopicSlugs.has(topic.slug)),
+  }))
+  .filter((group) => group.topics.length > 0);
+
+export const topicGroupsFlat = visibleTopicGroups.flatMap((group) =>
   group.topics.map((topic) => ({
     ...topic,
     groupSlug: group.slug,
@@ -578,5 +593,5 @@ export function getTopicBySlug(slug: string) {
 }
 
 export function getTopicGroupBySlug(slug: string) {
-  return topicGroups.find((group) => group.slug === slug);
+  return visibleTopicGroups.find((group) => group.slug === slug);
 }

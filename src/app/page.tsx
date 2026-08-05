@@ -2,9 +2,45 @@ import type { Metadata } from "next";
 import Home from "@/modules/layouts/home";
 
 export const metadata: Metadata = {
-  title: "Backend Engineering, Visualized",
+  title: "Backend Engineering",
   description:
-    "A visual-first backend engineering platform covering concepts, cloud, architecture, and field notes with SEO-friendly guides and interactive explainers.",
+    "A visual-first backend engineering platform covering concepts, cloud, architecture, and field notes with guides and interactive explainers.",
+  keywords: [
+    "backend engineering",
+    "system design",
+    "distributed systems",
+    "cloud architecture",
+    "technical guides",
+  ],
+  alternates: { canonical: "/" },
+  authors: [{ name: "Sparsh Sharma" }],
+  creator: "Sparsh Sharma",
+  publisher: "Backend Engineer",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
+  openGraph: {
+    type: "website",
+    title: "Backend Engineering",
+    description:
+      "A visual-first backend engineering platform covering concepts, cloud, architecture, and field notes with guides and interactive explainers.",
+    url: "/",
+    siteName: "Backend Engineer",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Backend Engineering",
+    description:
+      "A visual-first backend engineering platform covering concepts, cloud, architecture, and field notes with guides and interactive explainers.",
+  },
 };
 
 export default function Page() {

@@ -4,6 +4,42 @@ export const metadata: Metadata = {
   title: "Cloud & Platform Engineering",
   description:
     "Practical cloud, infrastructure, deployment, and platform engineering guides for production backend systems.",
+  keywords: [
+    "cloud engineering",
+    "platform engineering",
+    "deployment",
+    "observability",
+    "production systems",
+  ],
+  alternates: { canonical: "/cloud" },
+  authors: [{ name: "Sparsh Sharma" }],
+  creator: "Sparsh Sharma",
+  publisher: "Backend Engineer",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
+  openGraph: {
+    type: "website",
+    title: "Cloud & Platform Engineering",
+    description:
+      "Practical cloud, infrastructure, deployment, and platform engineering guides for production backend systems.",
+    url: "/cloud",
+    siteName: "Backend Engineer",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Cloud & Platform Engineering",
+    description:
+      "Practical cloud, infrastructure, deployment, and platform engineering guides for production backend systems.",
+  },
 };
 export default function CloudPage() {
   return (

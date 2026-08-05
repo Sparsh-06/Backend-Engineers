@@ -5,6 +5,42 @@ export const metadata: Metadata = {
   title: "Backend Engineering Concepts",
   description:
     "Visual, practical guides to the core concepts behind reliable backend systems, from HTTP and databases to reliability and security.",
+  keywords: [
+    "backend engineering concepts",
+    "http basics",
+    "databases",
+    "reliability",
+    "security",
+  ],
+  alternates: { canonical: "/concepts" },
+  authors: [{ name: "Sparsh Sharma" }],
+  creator: "Sparsh Sharma",
+  publisher: "Backend Engineer",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
+  openGraph: {
+    type: "website",
+    title: "Backend Engineering Concepts",
+    description:
+      "Visual, practical guides to the core concepts behind reliable backend systems, from HTTP and databases to reliability and security.",
+    url: "/concepts",
+    siteName: "Backend Engineer",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Backend Engineering Concepts",
+    description:
+      "Visual, practical guides to the core concepts behind reliable backend systems, from HTTP and databases to reliability and security.",
+  },
 };
 export default function ConceptsPage() {
   return (

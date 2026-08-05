@@ -1,0 +1,75 @@
+---
+title: "Node.js Event Loop"
+description: "See how Node.js keeps handling work without waiting for every slow task to finish."
+keywords: ["event loop", "microtasks", "macrotasks", "libuv"]
+phase: "Phase 1"
+group: "language-runtimes"
+---
+
+## What is the event loop?
+
+Imagine a restaurant where there is only one chef. If that chef had to stand by the oven and watch every dish cook, the whole kitchen would grind to a halt. Instead, the chef puts a dish in the oven, sets a timer, and moves on to other tasks. When the timer rings, the chef checks in. That is exactly what Node.js does.
+
+Node.js runs your JavaScript on a single thread — there is only one chef in the kitchen. But it handles thousands of tasks concurrently using the **event loop**, an internal mechanism that keeps checking: "Is anything ready for me to handle next?"
+
+<Callout>
+If a task blocks the loop, every request behind it waits. That is why CPU-heavy work belongs in a worker thread or background job.
+</Callout>
+
+## The phases of the event loop
+
+The event loop cycles through six distinct phases, in order, on every tick:
+
+1. **Timers** — Runs callbacks scheduled by `setTimeout()` and `setInterval()` whose delay has elapsed.
+2. **Pending callbacks** — Handles I/O errors and other deferred callbacks from the previous cycle.
+3. **Idle, prepare** — Internal bookkeeping. You will rarely think about this phase.
+4. **Poll** — The heart of the loop. Waits for new I/O events (file reads, network responses) and executes their callbacks.
+5. **Check** — Runs callbacks registered with `setImmediate()`.
+6. **Close callbacks** — Cleans up closed connections and sockets.
+
+## Microtasks vs macrotasks
+
+This is the part that trips up most developers.
+
+**Microtasks** run immediately after the current operation finishes, before the event loop moves to its next phase. Resolved `Promise` callbacks and `queueMicrotask()` calls fall here.
+
+**Macrotasks** (also called timers or I/O callbacks) go into one of the phases above and are processed in their turn.
+
+```js
+console.log("1 - synchronous");
+
+setTimeout(() => console.log("2 - macrotask (timer)"), 0);
+
+Promise.resolve().then(() => console.log("3 - microtask"));
+
+console.log("4 - synchronous");
+
+// Output:
+// 1 - synchronous
+// 4 - synchronous
+// 3 - microtask
+// 2 - macrotask (timer)
+```
+
+Notice how the promise callback (3) runs before the timer (2), even though the timer delay is zero. The microtask queue is drained completely before the loop advances.
+
+## Why does this matter in practice?
+
+**Blocking the loop is the cardinal sin.** If you run a CPU-heavy calculation synchronously — sorting a million records, computing a hash — you freeze the chef. Every other request piles up and waits.
+
+Common mistakes:
+- Parsing a large JSON file synchronously with `JSON.parse()` on a giant string
+- Using `fs.readFileSync()` inside a request handler
+- Running a recursive algorithm without breaking it up
+
+**The fix**: Move heavy work to a Worker Thread (covered in the next topic) or offload it to a background job queue.
+
+## Mental model to keep
+
+Think of the event loop as a relay race organiser. It:
+1. Checks if any timers have fired
+2. Checks if any file or network work has come back
+3. Flushes all microtasks (promise callbacks) immediately after any step
+4. Sleeps just long enough for the next event to arrive
+
+If you keep callbacks fast and non-blocking, the loop stays lightning quick. If you block it, everything slows down proportionally — every user, every request, every timer.
