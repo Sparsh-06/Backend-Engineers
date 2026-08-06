@@ -9,12 +9,21 @@ interface LayoutProps {
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.backendengineer.in"),
   title: {
-    default: "Backend Engineer — Backend Engineering, Made Clear",
+    default: "Backend Engineer - Backend Engineering, Made Clear",
     template: "%s | Backend Engineer",
   },
   description:
     "Master complex backend engineering, cloud architecture, and distributed systems with clear, visual breakdowns and step-by-step technical guides.",
   keywords: [
+    // Backend Fundamentals
+    "Backend Engineer",
+    "What Is A Backend Engineer",
+    "Backend Engineering Basics",
+    "Backend Engineering For Beginners",
+    "Client-Server Model",
+    "How Does A Server Work",
+    "What Happens When You Type A URL",
+
     // Core Engineering & Architecture
     "Backend Engineering",
     "Backend Development",
@@ -94,14 +103,43 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     siteName: "Backend Engineer",
-    title: "Backend Engineer — Backend Engineering, Made Clear",
+    title: "Backend Engineer - Backend Engineering, Made Clear",
     description: "Visual guides, system maps, and field notes for backend engineers.",
     url: "https://www.backendengineer.in",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Backend Engineer — Backend Engineering, Made Clear",
+    title: "Backend Engineer - Backend Engineering, Made Clear",
     description: "Visual guides, system maps, and field notes for backend engineers.",
+  },
+};
+
+const organizationSchema = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "Backend Engineer",
+  url: "https://www.backendengineer.in",
+  logo: "https://www.backendengineer.in/favicon.png",
+  founder: {
+    "@type": "Person",
+    name: "Sparsh Sharma",
+  },
+  sameAs: [],
+};
+
+const websiteSchema = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "Backend Engineer",
+  alternateName: ["BackendEngineer.in", "Backend Engineering"],
+  url: "https://www.backendengineer.in",
+  potentialAction: {
+    "@type": "SearchAction",
+    target: {
+      "@type": "EntryPoint",
+      urlTemplate: "https://www.backendengineer.in/topics?q={search_term_string}",
+    },
+    "query-input": "required name=search_term_string",
   },
 };
 
@@ -114,6 +152,14 @@ export default function RootLayout({ children }: LayoutProps) {
       data-scroll-behavior="smooth"
     >
       <body suppressHydrationWarning className="min-h-full flex flex-col">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
+        />
         {children}
 
         {/* Google Analytics */}

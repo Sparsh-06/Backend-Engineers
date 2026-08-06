@@ -114,7 +114,7 @@ export default function TopicDetail(props: TopicDetailProps) {
       <Navbar />
       <section className="px-5 pb-20 pt-28 sm:px-8 lg:px-12">
         <div className="mx-auto grid max-w-7xl gap-10 xl:grid-cols-[220px_minmax(0,680px)_190px] xl:justify-center xl:gap-14">
-          {/* Left sidebar — group navigation */}
+          {/* Left sidebar - group navigation */}
           <aside className="hidden xl:block">
             <div className="sticky top-28 border-r border-black/10 pr-5">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-black/45">
@@ -163,7 +163,7 @@ export default function TopicDetail(props: TopicDetailProps) {
                 {description}
               </p>
               <div className="mt-5 flex flex-wrap gap-x-3 gap-y-2">
-                {keywords.map((keyword) => (
+                {keywords.slice(0, 3).map((keyword) => (
                   <span
                     key={keyword}
                     className="text-[11px] font-semibold uppercase tracking-[0.14em] text-black/45"
@@ -313,7 +313,7 @@ export default function TopicDetail(props: TopicDetailProps) {
             </div>
           </article>
 
-          {/* Right sidebar — table of contents */}
+          {/* Right sidebar - table of contents */}
           <aside className="hidden xl:block">
             <div className="sticky top-28 border-l border-black/10 pl-5">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-black/45">

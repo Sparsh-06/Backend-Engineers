@@ -1,0 +1,91 @@
+---
+title: "Asynchronous and Non-Blocking I/O"
+description: "How Node.js starts slow work, such as reading a file, and keeps doing other things while it waits."
+keywords: ["what is non-blocking io", "async io node js explained", "how does libuv work", "callbacks vs promises vs async await", "node js thread pool explained", "async I/O", "libuv", "non-blocking I/O", "callbacks", "promises", "async/await", "UV_THREADPOOL_SIZE", "node js performance", "blocking vs non-blocking", "concurrent requests node js"]
+phase: "Phase 1"
+group: "language-runtimes"
+---
+
+## The problem with waiting
+
+A database round trip takes 20 milliseconds. Not long - until you're handling a thousand requests at once and every one of them wants that same 20 milliseconds of nothing happening. In a traditional blocking model, the thread handling that request just sits there for the duration, doing no other work, serving nobody else.
+
+Node doesn't do that. It starts the database call, and instead of waiting, it moves on to the next thing that needs handling. When the result comes back, it picks the work back up. That's the entire idea behind non-blocking I/O - not that the work happens faster, but that nothing sits idle waiting for it.
+
+## What libuv is actually doing
+
+Node itself doesn't implement any of this. It hands the work to **libuv**, a C library doing the actual plumbing underneath.
+
+Call `fs.readFile()` and libuv:
+
+1. Hands the disk read off to the operating system (or, for a handful of operation types, to its own thread pool - more on that below)
+2. Registers a callback with the event loop
+3. Gives control back to your JavaScript immediately, before the read has finished
+
+When the OS says the read is done, libuv queues the callback, and the event loop runs it on its next poll phase. You never touch libuv directly - you just write `fs.readFile()` with a callback, or `await` it, and this is what's actually happening underneath either way.
+
+## Callbacks, promises, async/await - same mechanism, different handwriting
+
+```js
+// Callbacks - the original style
+fs.readFile("./data.json", "utf8", (err, data) => {
+  if (err) throw err;
+  console.log(data);
+});
+
+// Promises
+fs.promises.readFile("./data.json", "utf8")
+  .then(data => console.log(data))
+  .catch(err => console.error(err));
+
+// async/await - reads like synchronous code, isn't
+async function loadData() {
+  const data = await fs.promises.readFile("./data.json", "utf8");
+  console.log(data);
+}
+```
+
+All three compile down to the same libuv mechanism underneath. `async/await` doesn't change what happens at runtime - it's syntax sugar over promises, nothing more. Pick whichever reads clearest for the situation; there's no performance difference between them.
+
+## Not everything is actually non-blocking
+
+Here's the part that catches people off guard: some operations - certain filesystem calls, DNS lookups, a handful of crypto functions - genuinely cannot be made non-blocking at the OS level. For those, libuv keeps a small thread pool (four threads by default) and hands the blocking work off there instead.
+
+<Callout>
+From your code's point of view it still looks non-blocking - you get a callback, execution continues. But underneath, real OS threads are doing real blocking work in parallel. If you're doing a lot of concurrent crypto or file operations and things feel slower than expected, `UV_THREADPOOL_SIZE` is the environment variable that controls how many threads are available for this.
+</Callout>
+
+## What actually happens, in order
+
+```js
+const data = await fs.promises.readFile("bigfile.json", "utf8");
+doSomethingWith(data);
+```
+
+1. Node asks libuv to start the read
+2. libuv either hands it to the OS directly, or to the thread pool
+3. Your JavaScript keeps running - other requests get handled in the meantime
+4. The OS reports the read is done
+5. libuv queues the callback
+6. The event loop picks it up, and execution resumes right after the `await`
+
+The JavaScript thread was never blocked at any point in that sequence. It was doing other work the entire time the file was being read.
+
+## Where this goes wrong
+
+`fs.readFileSync()` inside a request handler is the most common mistake - it looks harmless on a dev machine with one user, and quietly becomes a production incident once real traffic shows up, because it blocks the exact thread every other request is also waiting on.
+
+Unhandled promise rejections are the second one - an error inside an `async` function with no `catch` doesn't crash loudly, it just disappears, and you find out about it later from a support ticket instead of a stack trace.
+
+And it's easy to assume two sequential `await`s are somehow linked, when they're just two separate async operations running one after the other for no reason:
+
+```js
+// Sequential - waits for userQuery to finish before starting postsQuery
+const user = await getUserById(id);
+const posts = await getPostsByUser(id);
+
+// Parallel - both queries run at the same time
+const [user, posts] = await Promise.all([getUserById(id), getPostsByUser(id)]);
+```
+
+If the two calls don't depend on each other, `Promise.all()` is free performance sitting right there.

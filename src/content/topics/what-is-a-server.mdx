@@ -1,0 +1,59 @@
+---
+title: "What is a server, really?"
+description: "A server is just a program. See what a process, a port, and a socket actually are underneath the word 'server'."
+keywords: ["what is a server", "what is a port in networking", "process vs thread vs socket", "how does a server work", "what does listening on a port mean", "server", "port", "socket", "process", "localhost", "TCP socket", "EADDRINUSE", "web server basics", "backend server", "how servers handle requests"]
+phase: "Phase 0"
+group: "backend-fundamentals"
+---
+
+## It's just a program
+
+People say "server" like it's a special box. It isn't. It's a program that sits in a loop, waiting for someone to say something to it. That's the whole trick.
+
+```js
+const http = require("http");
+
+const server = http.createServer((req, res) => {
+  res.end("Hello from a server");
+}); 
+
+server.listen(3000);
+```
+
+Run that on your laptop right now and your laptop is a server. Not "acting like" one - it is one, for as long as that process stays alive. The moment you kill the terminal, it stops being a server again. Nothing about the hardware ever changed.
+
+## Ports are just numbers the OS uses for routing
+
+Your machine runs dozens of programs at once, and more than a few of them want to talk over the network. When a packet shows up, something has to decide which program gets it. That's a port - a number from 0 to 65535 that the OS uses to route incoming traffic to the right listener.
+
+80 is the unspoken default for HTTP. 443 for HTTPS. 5432 if you've ever run Postgres locally and wondered why nothing else could grab that number. When your code calls `server.listen(3000)`, you're really telling the kernel: anything that shows up addressed to port 3000, hand it to me, not to whatever else is running.
+
+Two programs can't bind the same port at the same time - that's the `EADDRINUSE` error you've probably seen if you ran `npm run dev` twice without noticing the first one was still alive.
+
+## The socket is the actual conversation
+
+A port routes traffic to a process. A socket is the specific, live conversation with one particular client. Every time someone connects, the OS opens a new socket to track that exchange - even though a hundred different clients might all be hitting the exact same port 3000 at once.
+
+<Callout>
+Port 3000 is the street address. Each socket is one specific delivery in progress. The address doesn't change; how many deliveries are happening against it does.
+</Callout>
+
+This is also why a slow client can quietly hurt you. If someone opens a connection and just... never sends anything, that socket sits open, using memory, until something times it out.
+
+## The process is what can die on you
+
+`node server.js` doesn't just run code - it creates a process, with its own slice of memory and its own place in the OS scheduler. If that process crashes (unhandled exception, out of memory, whatever), the server goes down even though nothing on disk changed. Restart the process, and you're back, assuming nothing was lost that mattered.
+
+Which is exactly why nobody runs one process in production. You run several - same code, same port, load balanced across them - so one crash doesn't take the whole thing out. That's what Node's Cluster module and worker threads exist for, and we'll get into both later.
+
+## When someone says "the server is down"
+
+They usually mean one of three unrelated things, and it's worth knowing which before you start debugging:
+
+1. The process isn't running at all.
+2. It's running, but not listening where you think it is - wrong port, wrong interface.
+3. The process is fine, but something between the client and it - DNS, a firewall, a load balancer - never delivered the request.
+
+Three very different fixes. Confusing them wastes the first twenty minutes of most incidents.
+
+If you take one thing from this page: "server," "process," "port," and "socket" are four different words for four different layers, and people use "server" loosely to mean all of them at once. Once you can tell them apart, half of what looks like a mysterious backend server problem turns out to be one of these four things in particular, not some vague notion of "the server."

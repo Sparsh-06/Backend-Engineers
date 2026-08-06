@@ -1,0 +1,107 @@
+---
+title: "Concurrency Primitives in Node.js"
+description: "When one Node.js process is enough, and when it helps to give heavy work its own worker."
+keywords: ["worker threads vs cluster node js", "how to handle cpu-bound tasks in node js", "node js multithreading explained", "when to use worker threads", "node js cluster module explained", "Cluster", "Worker Threads", "CPU-bound", "SharedArrayBuffer", "multithreading", "load balancing node js", "node js scaling", "process isolation", "concurrency primitives", "node js performance tuning"]
+phase: "Phase 1"
+group: "language-runtimes"
+---
+
+## The single-thread constraint
+
+Node runs your JavaScript on one thread. For I/O-heavy work - HTTP requests, database calls, hitting other APIs - that's not a limitation, it's the whole advantage. The event loop juggles thousands of waiting operations without breaking a sweat, because waiting doesn't cost CPU.
+
+CPU-heavy work is a different story. Image resizing, PDF generation, large JSON transforms, anything that needs actual compute rather than waiting - run that on the main thread and you freeze the event loop for as long as it takes. Every other request queues up behind it, waiting on CPU that's currently busy with something unrelated to them.
+
+Node gives you two ways out of this, and they solve different problems.
+
+## Worker Threads
+
+Worker Threads, stable since Node 12, let you spin up additional JavaScript threads inside the same process. Each one gets its own V8 context and its own heap - they talk to the main thread by passing messages, not by sharing memory (with one exception, below).
+
+```js
+// main.js
+const { Worker } = require("worker_threads");
+
+const worker = new Worker("./heavy-task.js", {
+  workerData: { payload: largeDataset }
+});
+
+worker.on("message", (result) => {
+  console.log("Worker finished:", result);
+});
+
+worker.on("error", (err) => {
+  console.error("Worker error:", err);
+});
+```
+
+```js
+// heavy-task.js
+const { workerData, parentPort } = require("worker_threads");
+
+const result = processHeavyComputation(workerData.payload);
+parentPort.postMessage(result);
+```
+
+The main event loop stays free the entire time. The worker does the expensive part somewhere else.
+
+## The Cluster module
+
+Cluster takes a completely different angle: instead of adding threads within a process, it forks the whole process - usually once per CPU core - and puts a basic load balancer in front of the copies.
+
+```js
+const cluster = require("cluster");
+const http = require("http");
+const numCPUs = require("os").cpus().length;
+
+if (cluster.isPrimary) {
+  for (let i = 0; i < numCPUs; i++) {
+    cluster.fork();
+  }
+} else {
+  http.createServer((req, res) => {
+    res.end("Response from worker " + process.pid);
+  }).listen(3000);
+}
+```
+
+Each forked process is fully isolated - separate memory, separate everything. If one crashes, the rest keep serving traffic without noticing. The OS scheduler spreads incoming connections across them.
+
+## Which one, when
+
+| Situation | Reach for |
+|---|---|
+| CPU-bound work inside a single request (image processing, crypto) | Worker Threads |
+| Using every CPU core for overall throughput | Cluster |
+| Background jobs that shouldn't touch the main server at all | Worker Threads |
+| Full isolation, independent memory per instance | Cluster |
+| Sharing large data across threads without copying it | Worker Threads + SharedArrayBuffer |
+
+Most production setups end up using both - Cluster to spread load across cores, and Worker Threads inside each of those processes for the specific operations that are actually CPU-bound.
+
+## SharedArrayBuffer, and why it's dangerous
+
+Message passing between workers copies data. Fine for small payloads, expensive for large arrays or buffers.
+
+`SharedArrayBuffer` skips the copy - workers share the same memory directly, and a write in one thread is immediately visible in another.
+
+```js
+// Main thread
+const sharedBuffer = new SharedArrayBuffer(1024 * 4);
+const sharedArray = new Int32Array(sharedBuffer);
+worker.postMessage({ sharedBuffer }); // passing the buffer itself, not a copy
+
+// Worker thread
+const sharedArray = new Int32Array(workerData.sharedBuffer);
+sharedArray[0] = 42; // visible in the main thread immediately
+```
+
+<Callout>
+Two threads writing to the same shared memory without coordination is a textbook data race - one of the few ways to get genuinely nondeterministic bugs in JavaScript, a language that otherwise mostly protects you from this. Use `Atomics` for anything touching shared memory concurrently, and reach for `SharedArrayBuffer` only when message-passing overhead is actually the bottleneck, not by default.
+</Callout>
+
+## The question that decides it
+
+Before reaching for either tool, ask what's actually slow: waiting, or computing.
+
+If it's waiting - a slow database, a third-party API - the event loop already handles that fine on its own. Adding threads doesn't help and adds real complexity for no gain. If it's computing - the CPU is genuinely pegged doing work - that's the one case where moving work off the main thread is the right call, not a premature optimization.

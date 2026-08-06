@@ -1,0 +1,52 @@
+---
+title: "What happens when you type a URL and hit enter"
+description: "Follow one request end to end - DNS lookup, connecting to a server, and getting a response back in your browser."
+keywords: ["what happens when you type a url", "how DNS works", "how does the internet work", "TCP TLS HTTP request flow", "DNS lookup explained", "DNS", "TCP", "TLS handshake", "HTTPS", "URL", "DNS resolver", "how the web works", "networking fundamentals", "page load sequence", "browser to server"]
+phase: "Phase 0"
+group: "backend-fundamentals"
+---
+
+## First, the URL gets taken apart
+
+`https://backendengineer.in/topics/nodejs-event-loop` looks like one string. Your browser reads it as three separate instructions before it does anything at all:
+
+- `https` - use HTTP, but wrapped in TLS.
+- `backendengineer.in` - which server to even talk to.
+- `/topics/nodejs-event-loop` - which specific thing on that server you're asking for.
+
+The hostname is for humans. The actual network doesn't route by name, it routes by number. So step one is turning that name into an address.
+
+## DNS: the lookup nobody thinks about until it's slow
+
+DNS is the internet's phonebook, except the phonebook is distributed across a chain of servers instead of sitting in one place. Your browser asks a resolver "what's the IP for backendengineer.in," and that resolver might already know the answer from cache, or might have to walk up the chain to find out. Either way you get back something like `76.76.21.21`.
+
+First visit to a site pays this cost in full. Every visit after usually doesn't, because the answer got cached somewhere along the way - your OS, your router, your ISP's resolver. This is also why DNS changes (moving hosts, changing a CNAME) take time to "propagate" - you're waiting for cached answers scattered across the internet to expire.
+
+## Opening the actual connection
+
+IP address in hand, the browser opens a TCP connection to it, almost always on port 443 now. Then, because this is HTTPS, a TLS handshake happens before a single byte of the actual page gets sent - browser and server negotiate encryption keys so nobody sitting in the middle of the network can read what follows. Worth knowing: this handshake alone costs a full round trip or two before your request even goes out. On a slow connection you can feel that delay before the page starts loading at all.
+
+## The request goes out, plain text over an encrypted pipe
+
+```
+GET /topics/nodejs-event-loop HTTP/1.1
+Host: backendengineer.in
+Accept: text/html
+```
+
+Simple enough to write by hand, which is part of why HTTP has lasted this long. This travels down the connection just opened, lands on whatever process is listening on that port, and gets handed off to application code - in this project's case, a Next.js route that reads a markdown file, renders it, and attaches metadata.
+
+## What comes back
+
+```
+HTTP/1.1 200 OK
+Content-Type: text/html
+
+<html>...</html>
+```
+
+And then the browser starts parsing before the whole response has even finished arriving - it doesn't wait for the entire HTML document before it starts working. As it parses, it finds references to more things it needs (a stylesheet, a font, an image) and kicks off a lighter version of this same cycle for each one, usually reusing the connection it already has open so it doesn't pay for DNS and the TLS handshake all over again.
+
+If a page feels slow, this is the sequence to walk through in order - DNS, connect, request, response, render - because "slow" almost always means one specific link in that chain, not the whole thing.
+
+This whole sequence usually finishes in well under a second, which is exactly why nobody thinks about it. But every one of those steps is a separate system that can fail or slow down on its own - a DNS provider having an outage looks nothing like a TLS certificate expiring, even though both show up to a user as "the site won't load." Knowing the chain by heart is what turns that vague complaint into a specific place to start looking.

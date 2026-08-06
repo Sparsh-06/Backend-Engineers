@@ -88,7 +88,7 @@ export default async function TopicPage({
     notFound();
   }
 
-  // Try to load rich markdown content — null if no .md file exists yet
+  // Try to load rich markdown content - null if no .md file exists yet
   const markdown = await getTopicContent(slug);
 
   const relatedTopics = group.topics
@@ -101,14 +101,43 @@ export default async function TopicPage({
     }));
 
   const markdownToc: TocEntry[] = markdown?.toc ?? [];
+  const pageUrl = `https://www.backendengineer.in/topics/${slug}`;
   const breadcrumbSchema = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: [
       { "@type": "ListItem", position: 1, name: siteName, item: "https://www.backendengineer.in" },
       { "@type": "ListItem", position: 2, name: "Topics", item: "https://www.backendengineer.in/topics" },
-      { "@type": "ListItem", position: 3, name: topic.title, item: `https://www.backendengineer.in/topics/${slug}` },
+      { "@type": "ListItem", position: 3, name: topic.title, item: pageUrl },
     ],
+  };
+
+  const articleTitle = markdown?.frontmatter.title ?? topic.title;
+  const articleDescription = markdown?.frontmatter.description ?? topic.description;
+  const dateModified = markdown?.lastModified ?? "2026-08-05T00:00:00.000Z";
+  const articleSchema = {
+    "@context": "https://schema.org",
+    "@type": "TechArticle",
+    headline: articleTitle,
+    description: articleDescription,
+    url: pageUrl,
+    mainEntityOfPage: { "@type": "WebPage", "@id": pageUrl },
+    inLanguage: "en",
+    datePublished: dateModified,
+    dateModified,
+    author: { "@type": "Organization", name: siteName, url: "https://www.backendengineer.in" },
+    publisher: {
+      "@type": "Organization",
+      name: siteName,
+      url: "https://www.backendengineer.in",
+      logo: { "@type": "ImageObject", url: "https://www.backendengineer.in/favicon.png" },
+    },
+    isPartOf: {
+      "@type": "CreativeWorkSeries",
+      name: group.title,
+      url: `https://www.backendengineer.in/topics#${group.slug}`,
+    },
+    keywords: (markdown?.frontmatter.keywords ?? topic.keywords).join(", "),
   };
 
   return (
@@ -116,6 +145,10 @@ export default async function TopicPage({
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }}
       />
       <TopicDetail
         slug={topic.slug}

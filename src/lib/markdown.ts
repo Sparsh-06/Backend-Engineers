@@ -27,6 +27,7 @@ export type TopicContent = {
   content: React.ReactElement;
   toc: TocEntry[];
   slug: string;
+  lastModified: string;
 };
 
 /**
@@ -123,6 +124,7 @@ export async function getTopicContent(slug: string): Promise<TopicContent | null
 
   const raw = fs.readFileSync(filePath, "utf-8");
   const toc = collectHeadingToc(raw);
+  const lastModified = fs.statSync(filePath).mtime.toISOString();
   const { content, frontmatter } = await compileMDX<TopicFrontmatter>({
     source: raw,
     options: {
@@ -140,6 +142,7 @@ export async function getTopicContent(slug: string): Promise<TopicContent | null
     content,
     toc,
     slug,
+    lastModified,
   };
 }
 

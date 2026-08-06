@@ -1,0 +1,35 @@
+---
+title: "Frontend vs backend vs infra: who owns what"
+description: "A clear map of where frontend code ends, where backend logic lives, and where infrastructure takes over."
+keywords: ["frontend vs backend", "what does a backend engineer do", "backend vs infrastructure", "who owns what in software engineering", "what is DevOps vs backend", "frontend", "backend", "infrastructure", "DevOps", "software engineering roles", "full stack vs backend", "backend engineer", "backend developer", "system design roles", "engineering team structure"]
+phase: "Phase 0"
+group: "backend-fundamentals"
+---
+
+## The split most people learn by getting it wrong first
+
+"The whole app" isn't one thing to debug. It's three layers, and they fail in completely different ways: what the user sees, what decides whether they're allowed to do it, and what keeps both of those actually reachable. Mixing these up is the single most common reason a bug takes an hour instead of five minutes for someone newer to backend work - you end up staring at the wrong layer entirely.
+
+## Frontend renders. It doesn't decide.
+
+React components, CSS, whatever runs in the user's browser - its job is showing information and turning clicks into requests. That's it. It is not, and cannot be, a security boundary, because anyone can open dev tools and send whatever they want directly to your API, skipping the frontend entirely.
+
+This one's worth being blunt about: if a "delete account" button is disabled in the UI for users under 18, and the backend doesn't also check age before deleting, you don't have a rule. You have a suggestion. Frontend validation is a UX nicety. The backend has to enforce the actual rule, every time, independent of whatever the frontend did or didn't check.
+
+## Backend decides
+
+This is where "can this user do this" actually gets answered - is this discount code still valid, does this user own this record, does this transaction leave the books balanced. Everything from Phase 1 through Phase 4 of this curriculum - runtimes, protocols, databases, distributed systems - lives here. It's the layer with the actual rules in it.
+
+## Infra keeps it running, and it's easy to forget it exists until it doesn't
+
+Servers or containers, load balancers, DNS, the pipeline that ships your code out, the alerts that page someone at 3am. A lot of backend engineers don't own this layer day to day. But not understanding it shows up in the code you write anyway - if you don't know your process can get killed and restarted without warning, you won't think to make startup and shutdown handle that gracefully. Phase 5 gets into this properly.
+
+## Which layer, when something breaks
+
+- Data on screen is wrong, but the raw API response looks fine → frontend.
+- The response itself is wrong, missing fields, or an error → backend.
+- Nothing comes back at all, or it's wildly inconsistent request to request → infra, before you touch application code at all.
+
+None of the three covers for a mistake in another one. Clever frontend code can't fix broken business logic, and no amount of infrastructure scaling fixes a bug that was never about capacity in the first place.
+
+Titles blur these lines constantly in real companies - a "full stack" role might touch all three, a small team's one backend engineer might also be the one who configures the load balancer. The boundary described here is about the nature of the problem, not who's assigned to fix it. Knowing which layer you're in is useful even when you're the only person covering all of them.

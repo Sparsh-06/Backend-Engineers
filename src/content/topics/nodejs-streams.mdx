@@ -1,0 +1,97 @@
+---
+title: "Streams and Buffer Management"
+description: "How to move large amounts of data in small pieces without using too much memory."
+keywords: ["what are node js streams", "how does backpressure work", "node js streams explained", "readable vs writable streams", "how to stream large files node js", "streams", "backpressure", "buffer management", "pipe", "Buffer", "transform stream", "duplex stream", "memory efficient file handling", "node js file streaming", "large file upload node js"]
+phase: "Phase 1"
+group: "language-runtimes"
+---
+
+## What loading everything at once actually costs
+
+Sending a 2GB video file to a user, the naive way, means loading the whole thing into memory first and then sending it. Fine for one request. Multiply that by a few hundred concurrent downloads and you'd need hundreds of gigabytes of RAM just to serve files - for data that's just passing through, not even being processed.
+
+Streams avoid this by never holding the whole thing at once. Data moves through in small chunks, each one processed and released before the next arrives.
+
+## The four kinds of stream
+
+| Type | What it is | Example |
+|---|---|---|
+| Readable | A source you read from | `fs.createReadStream()`, an incoming HTTP request body |
+| Writable | A destination you write to | `fs.createWriteStream()`, an HTTP response |
+| Duplex | Both at once | A TCP socket |
+| Transform | A duplex stream that changes the data as it passes through | Gzip compression, encryption |
+
+## What this looks like in practice
+
+Serving a large file without ever loading it whole:
+
+```js
+const http = require("http");
+const fs = require("fs");
+
+http.createServer((req, res) => {
+  const readStream = fs.createReadStream("./big-video.mp4");
+  readStream.pipe(res);
+}).listen(3000);
+```
+
+Each chunk gets read off disk and written straight to the network connection. Memory usage stays flat no matter how large the file is - a 2MB file and a 20GB file cost roughly the same amount of RAM to serve this way.
+
+Chaining a transform in the middle:
+
+```js
+const fs = require("fs");
+const zlib = require("zlib");
+
+fs.createReadStream("./large-log.txt")
+  .pipe(zlib.createGzip())
+  .pipe(fs.createWriteStream("./large-log.gz"));
+```
+
+Data flows disk → gzip → output file, one small chunk in memory at a time, the whole way through.
+
+## Backpressure: what happens when the reader can't keep up
+
+Picture pouring water into a bucket that has a small hole in the bottom. Pour faster than it drains and the bucket overflows. Streams have the same problem - a fast readable can produce chunks faster than a slow writable can consume them, and without something stopping that, memory grows without bound.
+
+`.pipe()` handles this automatically:
+
+1. The readable produces a chunk, writes it to the writable
+2. If the writable's internal buffer is already full, `.write()` returns `false`
+3. The readable pauses - it stops producing until told otherwise
+4. Once the writable clears its buffer, it emits `drain`
+5. The readable resumes
+
+<Callout>
+This protection only exists if you use `.pipe()` or otherwise respect the return value of `.write()`. Call `.read()` manually and ignore backpressure signals, and you've opted back into the exact unbounded memory growth streams were built to prevent.
+</Callout>
+
+## Buffers, underneath the streams
+
+Before there were streams, there was `Buffer` - Node's raw binary container, living outside V8's garbage-collected heap. That's what makes it efficient for image bytes, audio frames, network packets: raw memory, not JS objects with all their overhead.
+
+```js
+const buf = Buffer.alloc(10);
+buf.write("hello");
+console.log(buf.toString("utf8", 0, 5)); // "hello"
+```
+
+The chunks flowing through a `.pipe()` chain are Buffers by default (or strings if you've opted into object mode). Their lifecycle is part of the memory picture, not separate from it.
+
+## Where this trips people up
+
+Errors on a stream don't propagate to the destination automatically - an unhandled error on either side of a pipe can crash the process:
+
+```js
+// Silent failure waiting to happen
+readStream.pipe(writeStream);
+
+// Handle errors on every stream in the chain
+readStream.on("error", handleError);
+writeStream.on("error", handleError);
+readStream.pipe(writeStream);
+```
+
+`.pipe()` to two destinations at once doesn't do what it looks like it should - both destinations end up competing for the same chunks rather than each getting a clean copy. And a readable stream, once consumed, is gone; there's no rewinding it without having buffered the data yourself first.
+
+Streams are the right call whenever data is large, continuous, or arrives over time rather than all at once - file serving, CSV parsing, video transcoding, log processing, proxying requests. Anywhere "the whole thing" would be wasteful to even define.

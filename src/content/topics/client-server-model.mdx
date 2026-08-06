@@ -1,0 +1,39 @@
+---
+title: "The client-server model and the request-response cycle"
+description: "How a client asks for something, how a server answers, and why almost everything in backend engineering builds on this one exchange."
+keywords: ["client-server model explained", "request-response cycle", "how do APIs work", "client vs server", "what is an API", "client-server architecture", "API basics", "REST", "GraphQL", "gRPC", "idempotency", "request lifecycle", "backend API", "networking basics", "how backend works"]
+phase: "Phase 0"
+group: "backend-fundamentals"
+---
+
+## Client and server are roles, not machines
+
+Nobody's job title is "client." It's a role in one specific exchange: whoever asks is the client, whoever answers is the server. Your browser is a client when it loads this page. But the backend serving this page is itself a client the moment it turns around and queries a database. Same request, different direction, different role.
+
+This trips people up constantly when they're new. They picture "the backend" as one fixed thing that only ever serves. In practice almost nothing in a real system is purely one or the other - most services spend half their time answering requests and the other half making their own.
+
+## The cycle, stripped down
+
+1. A client sends a request. Here's what I want, here's whatever data goes with it.
+2. The server does the work - hits a database, runs some logic, maybe calls another service itself.
+3. The server sends a response back. Success, or here's what went wrong.
+4. That's it. Unless something's built specifically to remember, the server has no memory of this exchange five seconds later.
+
+```
+Client                          Server
+  |--- GET /users/42 ------------->|
+  |                                | (looks up user 42)
+  |<---- 200 OK, { user data } ----|
+```
+
+Every API style you'll run into - REST, GraphQL, gRPC - is a variation on this same shape. So is your browser loading a plain webpage. The wrapper changes; the ask-work-answer rhythm underneath doesn't.
+
+## Why bother naming something this obvious
+
+Because once you see it explicitly, debugging gets a lot less vague. "The API feels slow" stops being a feeling and becomes a question: is the delay in the network hop, in the server actually doing work, or in some downstream call the server is making that you haven't noticed yet? Those are three different problems with three different fixes, and you can't tell which one you have until you've split the cycle apart in your head.
+
+Same with "will this scale." That's really asking whether the server side of the cycle keeps up as more clients show up on the other end at once - which is most of what caching, load balancing, and queues in later sections are actually solving.
+
+One thing worth sitting with: a request that the client thinks failed might have actually succeeded on the server, with only the response lost on the way back. The client can't always tell the difference between "never happened" and "happened, but I never heard back." That gap is where a surprising number of production bugs live, and it's why idempotency shows up so often later in this curriculum.
+
+It's also why "API" and "client-server model" get used almost interchangeably in casual conversation, even though one is a specific interface and the other is the underlying shape it's built on. Every REST endpoint, every GraphQL query, every gRPC call is just this same request-response cycle wearing different clothes - which is worth remembering the next time a new API style shows up and looks unfamiliar at first glance.

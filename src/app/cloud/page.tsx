@@ -52,7 +52,7 @@ export default function CloudPage() {
           eyebrow: "Cloud essentials · 11 lessons",
           title: "A practical map of cloud primitives",
           description:
-            "Compute, storage, networking, IAM, and managed services—without the console-tour fog.",
+            "Compute, storage, networking, IAM, and managed services-without the console-tour fog.",
           meta: "Start mapping",
           accent: true,
           href: "/architecture",

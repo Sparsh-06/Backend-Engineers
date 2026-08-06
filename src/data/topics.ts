@@ -7,7 +7,7 @@ export type TopicItem = {
   visual?: TopicVisual;
 };
 
-export type TopicVisual = {
+export type MemoryMapVisual = {
   type: "memory-map";
   title: string;
   description: string;
@@ -17,6 +17,62 @@ export type TopicVisual = {
     detail: string;
   }[];
 };
+
+export type RequestFlowNode = {
+  id: string;
+  label: string;
+  /** Position within a 340x192 canvas. */
+  x: number;
+  y: number;
+  emphasis?: boolean;
+};
+
+export type RequestFlowVisual = {
+  type: "request-flow";
+  title: string;
+  description: string;
+  /** The node id requests originate from. */
+  sourceId: string;
+  nodes: RequestFlowNode[];
+  /** Default path, drawn/animated at rest - a list of node ids. */
+  defaultPath: string[];
+  /** Path shown when the visual is hovered/activated - a list of node ids. */
+  activePath: string[];
+  hint: string;
+  detail: string;
+};
+
+export type ComparisonVisual = {
+  type: "comparison";
+  title: string;
+  description: string;
+  left: {
+    label: string;
+    summary: string;
+    points: string[];
+  };
+  right: {
+    label: string;
+    summary: string;
+    points: string[];
+  };
+};
+
+export type TimelineVisual = {
+  type: "timeline";
+  title: string;
+  description: string;
+  steps: {
+    label: string;
+    detail: string;
+  }[];
+};
+
+export type TopicVisual =
+  | MemoryMapVisual
+  | RequestFlowVisual
+  | ComparisonVisual
+  | TimelineVisual;
 
 export type TopicGroup = {
   slug: string;
@@ -28,6 +84,12 @@ export type TopicGroup = {
 };
 
 const publishedTopicSlugs = new Set([
+  "what-is-a-server",
+  "client-server-model",
+  "url-to-response",
+  "http-basics",
+  "statelessness",
+  "who-owns-what",
   "nodejs-event-loop",
   "nodejs-async-io",
   "nodejs-worker-threads",
@@ -36,6 +98,215 @@ const publishedTopicSlugs = new Set([
 ]);
 
 export const topicGroups: TopicGroup[] = [
+  {
+    slug: "backend-fundamentals",
+    title: "Backend fundamentals, before the deep dives",
+    description:
+      "The plain-English basics that most tutorials assume you already know - what a server actually is, how a request becomes a response, and who is responsible for what.",
+    intro:
+      "Start here if terms like process, port, or stateless feel fuzzy. Everything later in this curriculum leans on these ideas.",
+    keywords: ["client-server model", "HTTP basics", "request lifecycle", "statelessness"],
+    topics: [
+      {
+        slug: "what-is-a-server",
+        title: "What is a server, really?",
+        description:
+          "A server is just a program. See what a process, a port, and a socket actually are underneath the word 'server'.",
+        keywords: [
+          "what is a server",
+          "what is a port in networking",
+          "process vs thread vs socket",
+          "how does a server work",
+          "what does listening on a port mean",
+          "server",
+          "port",
+          "socket",
+          "process",
+          "localhost",
+          "TCP socket",
+          "EADDRINUSE",
+          "web server basics",
+          "backend server",
+          "how servers handle requests",
+        ],
+        phase: "Phase 0",
+        visual: {
+          type: "request-flow",
+          title: "One request, one socket",
+          description: "Hover to see a second client connect. Both share the same port, but get their own socket.",
+          sourceId: "client-a",
+          nodes: [
+            { id: "client-a", label: "Client A", x: 30, y: 96 },
+            { id: "port", label: "Port 3000", x: 150, y: 96, emphasis: true },
+            { id: "process", label: "Process", x: 260, y: 60 },
+            { id: "client-b", label: "Client B", x: 30, y: 150 },
+          ],
+          defaultPath: ["client-a", "port", "process"],
+          activePath: ["client-b", "port", "process"],
+          hint: "hover to add client b",
+          detail: "Both clients talk to the same port, but the operating system tracks each connection as its own socket. One process, one port, many simultaneous sockets.",
+        },
+      },
+      {
+        slug: "client-server-model",
+        title: "The client-server model and the request-response cycle",
+        description:
+          "How a client asks for something, how a server answers, and why almost everything in backend engineering builds on this one exchange.",
+        keywords: [
+          "client-server model explained",
+          "request-response cycle",
+          "how do APIs work",
+          "client vs server",
+          "what is an API",
+          "client-server architecture",
+          "API basics",
+          "REST",
+          "GraphQL",
+          "gRPC",
+          "idempotency",
+          "request lifecycle",
+          "backend API",
+          "networking basics",
+          "how backend works",
+        ],
+        phase: "Phase 0",
+      },
+      {
+        slug: "url-to-response",
+        title: "What happens when you type a URL and hit enter",
+        description:
+          "Follow one request end to end - DNS lookup, connecting to a server, and getting a response back in your browser.",
+        keywords: [
+          "what happens when you type a url",
+          "how DNS works",
+          "how does the internet work",
+          "TCP TLS HTTP request flow",
+          "DNS lookup explained",
+          "DNS",
+          "TCP",
+          "TLS handshake",
+          "HTTPS",
+          "URL",
+          "DNS resolver",
+          "how the web works",
+          "networking fundamentals",
+          "page load sequence",
+          "browser to server",
+        ],
+        phase: "Phase 0",
+        visual: {
+          type: "timeline",
+          title: "From URL to rendered page",
+          description: "Step through what happens between hitting enter and seeing a page.",
+          steps: [
+            { label: "DNS lookup", detail: "The browser asks a DNS resolver to turn the hostname into an IP address, checking caches first." },
+            { label: "TCP connection", detail: "The browser opens a TCP connection to that IP address, usually on port 443." },
+            { label: "TLS handshake", detail: "Browser and server agree on encryption keys so the conversation that follows is private." },
+            { label: "HTTP request", detail: "The browser sends an HTTP request for the specific path in the URL." },
+            { label: "HTTP response", detail: "The server processes the request and sends back a status code, headers, and a body." },
+            { label: "Render", detail: "The browser parses the response and renders it, fetching any additional resources it needs along the way." },
+          ],
+        },
+      },
+      {
+        slug: "http-basics",
+        title: "HTTP basics: methods, status codes, and headers",
+        description:
+          "The vocabulary every API speaks - what GET and POST actually mean, why status codes exist, and what headers carry along for the ride.",
+        keywords: [
+          "HTTP methods explained",
+          "HTTP status codes explained",
+          "what are HTTP headers",
+          "GET vs POST",
+          "HTTP status code list",
+          "HTTP",
+          "status codes",
+          "headers",
+          "REST methods",
+          "404 error meaning",
+          "500 error meaning",
+          "Content-Type header",
+          "Authorization header",
+          "API vocabulary",
+          "HTTP request format",
+        ],
+        phase: "Phase 0",
+      },
+      {
+        slug: "statelessness",
+        title: "Statelessness and why it matters",
+        description:
+          "Why servers are built to forget you between requests, and what that trade-off buys you later when a system needs to scale.",
+        keywords: [
+          "what is a stateless server",
+          "stateful vs stateless",
+          "why is HTTP stateless",
+          "sessions vs tokens",
+          "how does horizontal scaling work",
+          "statelessness",
+          "stateless",
+          "stateful",
+          "sessions",
+          "JWT",
+          "cookies",
+          "Redis session store",
+          "load balancing basics",
+          "scaling a backend",
+          "authentication basics",
+        ],
+        phase: "Phase 0",
+        visual: {
+          type: "comparison",
+          title: "Stateful vs stateless servers",
+          description: "See what breaks when a second server enters the picture.",
+          left: {
+            label: "Stateful",
+            summary: "The server remembers you in its own local memory.",
+            points: [
+              "Fast to build for a single server.",
+              "Breaks if that process crashes or restarts.",
+              "A second server has no idea who you are.",
+              "Hard to scale horizontally without 'sticky' routing.",
+            ],
+          },
+          right: {
+            label: "Stateless",
+            summary: "The server remembers nothing; the client or shared storage carries identity.",
+            points: [
+              "Any server can handle any request.",
+              "A crashed process loses nothing about you.",
+              "Identity travels via a token or a shared store like Redis.",
+              "This is what makes horizontal scaling possible.",
+            ],
+          },
+        },
+      },
+      {
+        slug: "who-owns-what",
+        title: "Frontend vs backend vs infra: who owns what",
+        description:
+          "A clear map of where frontend code ends, where backend logic lives, and where infrastructure takes over.",
+        keywords: [
+          "frontend vs backend",
+          "what does a backend engineer do",
+          "backend vs infrastructure",
+          "who owns what in software engineering",
+          "what is DevOps vs backend",
+          "frontend",
+          "backend",
+          "infrastructure",
+          "DevOps",
+          "software engineering roles",
+          "full stack vs backend",
+          "backend engineer",
+          "backend developer",
+          "system design roles",
+          "engineering team structure",
+        ],
+        phase: "Phase 0",
+      },
+    ],
+  },
   {
     slug: "language-runtimes",
     title: "Language runtimes and execution mechanics",
@@ -50,7 +321,23 @@ export const topicGroups: TopicGroup[] = [
         title: "Node.js event loop",
         description:
           "See how Node.js keeps handling work without waiting for every slow task to finish.",
-        keywords: ["event loop", "microtasks", "macrotasks", "libuv"],
+        keywords: [
+          "what is the event loop",
+          "node js event loop explained",
+          "microtasks vs macrotasks",
+          "how does node js handle concurrency",
+          "event loop phases explained",
+          "event loop",
+          "microtasks",
+          "macrotasks",
+          "libuv",
+          "call stack",
+          "process.nextTick",
+          "setTimeout vs promise",
+          "node js internals",
+          "single threaded javascript",
+          "non-blocking node js",
+        ],
         phase: "Phase 1",
       },
       {
@@ -58,7 +345,23 @@ export const topicGroups: TopicGroup[] = [
         title: "Asynchronous and non-blocking I/O",
         description:
           "How Node.js starts slow work, such as reading a file, and keeps doing other things while it waits.",
-        keywords: ["async I/O", "libuv", "non-blocking I/O"],
+        keywords: [
+          "what is non-blocking io",
+          "async io node js explained",
+          "how does libuv work",
+          "callbacks vs promises vs async await",
+          "node js thread pool explained",
+          "async I/O",
+          "libuv",
+          "non-blocking I/O",
+          "callbacks",
+          "promises",
+          "async/await",
+          "UV_THREADPOOL_SIZE",
+          "node js performance",
+          "blocking vs non-blocking",
+          "concurrent requests node js",
+        ],
         phase: "Phase 1",
       },
       {
@@ -66,7 +369,23 @@ export const topicGroups: TopicGroup[] = [
         title: "Concurrency primitives in Node.js",
         description:
           "When one Node.js process is enough, and when it helps to give heavy work its own worker.",
-        keywords: ["Cluster", "Worker Threads", "CPU-bound"],
+        keywords: [
+          "worker threads vs cluster node js",
+          "how to handle cpu-bound tasks in node js",
+          "node js multithreading explained",
+          "when to use worker threads",
+          "node js cluster module explained",
+          "Cluster",
+          "Worker Threads",
+          "CPU-bound",
+          "SharedArrayBuffer",
+          "multithreading",
+          "load balancing node js",
+          "node js scaling",
+          "process isolation",
+          "concurrency primitives",
+          "node js performance tuning",
+        ],
         phase: "Phase 1",
       },
       {
@@ -74,7 +393,23 @@ export const topicGroups: TopicGroup[] = [
         title: "Streams and buffer management",
         description:
           "How to move large amounts of data in small pieces without using too much memory.",
-        keywords: ["streams", "backpressure", "buffer management"],
+        keywords: [
+          "what are node js streams",
+          "how does backpressure work",
+          "node js streams explained",
+          "readable vs writable streams",
+          "how to stream large files node js",
+          "streams",
+          "backpressure",
+          "buffer management",
+          "pipe",
+          "Buffer",
+          "transform stream",
+          "duplex stream",
+          "memory efficient file handling",
+          "node js file streaming",
+          "large file upload node js",
+        ],
         phase: "Phase 1",
       },
       {
@@ -82,7 +417,23 @@ export const topicGroups: TopicGroup[] = [
         title: "Memory management and garbage collection",
         description:
           "How Node.js cleans up unused memory, and how to spot when something is being kept by mistake.",
-        keywords: ["V8", "garbage collection", "memory leaks"],
+        keywords: [
+          "how does garbage collection work in node js",
+          "what causes a memory leak in node js",
+          "v8 garbage collection explained",
+          "how to find a memory leak in node js",
+          "node js heap memory explained",
+          "V8",
+          "garbage collection",
+          "memory leaks",
+          "heap snapshot",
+          "mark and sweep",
+          "process.memoryUsage",
+          "WeakMap",
+          "node js memory management",
+          "debugging node js memory",
+          "node js performance profiling",
+        ],
         phase: "Phase 1",
       },
       {
@@ -388,7 +739,7 @@ export const topicGroups: TopicGroup[] = [
         slug: "delivery-semantics",
         title: "Delivery semantics",
         description:
-          "What it means when a message might arrive once, twice, or not at all—and how to handle it safely.",
+          "What it means when a message might arrive once, twice, or not at all-and how to handle it safely.",
         keywords: ["at-least-once", "exactly-once", "idempotency"],
         phase: "Phase 4",
       },

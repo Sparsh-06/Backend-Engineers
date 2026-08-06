@@ -1,7 +1,7 @@
 ---
 title: "Node.js Event Loop"
 description: "See how Node.js keeps handling work without waiting for every slow task to finish."
-keywords: ["event loop", "microtasks", "macrotasks", "libuv"]
+keywords: ["what is the event loop", "node js event loop explained", "microtasks vs macrotasks", "how does node js handle concurrency", "event loop phases explained", "event loop", "microtasks", "macrotasks", "libuv", "call stack", "process.nextTick", "setTimeout vs promise", "node js internals", "single threaded javascript", "non-blocking node js"]
 phase: "Phase 1"
 group: "language-runtimes"
 ---
@@ -10,7 +10,7 @@ group: "language-runtimes"
 
 Imagine a restaurant where there is only one chef. If that chef had to stand by the oven and watch every dish cook, the whole kitchen would grind to a halt. Instead, the chef puts a dish in the oven, sets a timer, and moves on to other tasks. When the timer rings, the chef checks in. That is exactly what Node.js does.
 
-Node.js runs your JavaScript on a single thread — there is only one chef in the kitchen. But it handles thousands of tasks concurrently using the **event loop**, an internal mechanism that keeps checking: "Is anything ready for me to handle next?"
+Node.js runs your JavaScript on a single thread - there is only one chef in the kitchen. But it handles thousands of tasks concurrently using the **event loop**, an internal mechanism that keeps checking: "Is anything ready for me to handle next?"
 
 <Callout>
 If a task blocks the loop, every request behind it waits. That is why CPU-heavy work belongs in a worker thread or background job.
@@ -20,12 +20,12 @@ If a task blocks the loop, every request behind it waits. That is why CPU-heavy 
 
 The event loop cycles through six distinct phases, in order, on every tick:
 
-1. **Timers** — Runs callbacks scheduled by `setTimeout()` and `setInterval()` whose delay has elapsed.
-2. **Pending callbacks** — Handles I/O errors and other deferred callbacks from the previous cycle.
-3. **Idle, prepare** — Internal bookkeeping. You will rarely think about this phase.
-4. **Poll** — The heart of the loop. Waits for new I/O events (file reads, network responses) and executes their callbacks.
-5. **Check** — Runs callbacks registered with `setImmediate()`.
-6. **Close callbacks** — Cleans up closed connections and sockets.
+1. **Timers** - Runs callbacks scheduled by `setTimeout()` and `setInterval()` whose delay has elapsed.
+2. **Pending callbacks** - Handles I/O errors and other deferred callbacks from the previous cycle.
+3. **Idle, prepare** - Internal bookkeeping. You will rarely think about this phase.
+4. **Poll** - The heart of the loop. Waits for new I/O events (file reads, network responses) and executes their callbacks.
+5. **Check** - Runs callbacks registered with `setImmediate()`.
+6. **Close callbacks** - Cleans up closed connections and sockets.
 
 ## Microtasks vs macrotasks
 
@@ -55,21 +55,17 @@ Notice how the promise callback (3) runs before the timer (2), even though the t
 
 ## Why does this matter in practice?
 
-**Blocking the loop is the cardinal sin.** If you run a CPU-heavy calculation synchronously — sorting a million records, computing a hash — you freeze the chef. Every other request piles up and waits.
+Blocking the loop is the one mistake that takes down everything else at once. Run a CPU-heavy calculation synchronously - sorting a million records, hashing a large payload - and you freeze the single thread every request depends on. It's not that one request gets slow. Every request queued behind it gets slow, including ones that had nothing to do with the expensive work.
 
-Common mistakes:
-- Parsing a large JSON file synchronously with `JSON.parse()` on a giant string
-- Using `fs.readFileSync()` inside a request handler
-- Running a recursive algorithm without breaking it up
+A few ways this sneaks in without anyone noticing at first:
+- `JSON.parse()` on a genuinely large string, synchronously, inside a request handler
+- `fs.readFileSync()` used because it was faster to write and nobody circled back
+- A recursive algorithm that runs to completion in one tick instead of yielding partway through
 
-**The fix**: Move heavy work to a Worker Thread (covered in the next topic) or offload it to a background job queue.
+The fix is always some version of "get this off the main thread" - a Worker Thread for CPU work (next topic), or a background job queue if it doesn't need to block the response at all.
 
 ## Mental model to keep
 
-Think of the event loop as a relay race organiser. It:
-1. Checks if any timers have fired
-2. Checks if any file or network work has come back
-3. Flushes all microtasks (promise callbacks) immediately after any step
-4. Sleeps just long enough for the next event to arrive
+The event loop isn't smart. It's a very fast, very literal loop: check timers, check I/O callbacks, drain every pending microtask, repeat. Nothing about it schedules based on priority or fairness - it just keeps cycling through the same phases in the same order, as fast as it can.
 
-If you keep callbacks fast and non-blocking, the loop stays lightning quick. If you block it, everything slows down proportionally — every user, every request, every timer.
+Which means the loop's speed is entirely a function of how fast your callbacks return control. Keep them short and non-blocking, and the loop barely notices load. Block it even once, and that cost gets paid by every single thing waiting behind it - not proportionally, but all at once.

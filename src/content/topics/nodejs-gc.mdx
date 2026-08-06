@@ -1,0 +1,97 @@
+---
+title: "Memory Management and Garbage Collection"
+description: "How Node.js cleans up unused memory, and how to spot when something is being kept by mistake."
+keywords: ["how does garbage collection work in node js", "what causes a memory leak in node js", "v8 garbage collection explained", "how to find a memory leak in node js", "node js heap memory explained", "V8", "garbage collection", "memory leaks", "heap snapshot", "mark and sweep", "process.memoryUsage", "WeakMap", "node js memory management", "debugging node js memory", "node js performance profiling"]
+phase: "Phase 1"
+group: "language-runtimes"
+---
+
+## Nothing cleans itself up on its own
+
+Every object, every variable, every chunk of loaded data takes up memory the moment it exists. Unlike C, nobody calls `free()` in JavaScript - V8, the engine Node runs on, reclaims memory automatically through garbage collection. Understanding roughly how that works is the difference between shrugging at a memory graph that keeps climbing and actually knowing where to look.
+
+## How V8 lays out the heap
+
+V8 splits heap memory into a few distinct regions, not one undifferentiated blob.
+
+**New Space**, sometimes called the young generation, holds small objects that were just allocated. Collection here runs often and cheaply, because there's rarely much to check - most objects allocated here die almost immediately. Anything that survives a few collection passes gets promoted out.
+
+**Old Space** holds whatever got promoted - objects that have proven they'll stick around. Collection here is rarer but far more expensive, since V8 has to scan a much larger area to figure out what's still reachable.
+
+There are also separate areas for compiled code, objects over roughly 1MB, and object shape metadata - but new space and old space are the two that matter for day-to-day debugging.
+
+## Mark-and-sweep, the actual algorithm
+
+V8 uses mark-and-sweep. Starting from root objects - global variables, the current call stack, anything a closure still references - it walks every reachable reference and marks what it finds as alive. Whatever's left unmarked afterward is unreachable, and gets swept.
+
+For the old generation specifically, V8 does this incrementally: small marking steps interleaved between actual JavaScript execution, rather than one long stop-the-world pause. That's a deliberate tradeoff to avoid the kind of multi-hundred-millisecond freeze that would otherwise show up as a visible stutter under load.
+
+## What actually causes a leak
+
+A leak, in this context, just means your code is still holding a reference to something it's genuinely done with - which means V8 has no way to know it's safe to reclaim, because as far as it can tell, the object is still reachable.
+
+**Event listeners nobody removed:**
+```js
+// Leaks - this listener, and whatever it captures, never gets released
+emitter.on("data", (chunk) => {
+  bigBuffer.push(chunk);
+});
+
+// Fixed - hold a reference so it can be removed later
+const handler = (chunk) => bigBuffer.push(chunk);
+emitter.on("data", handler);
+emitter.off("data", handler);
+```
+
+**A closure holding onto more than it needs:**
+```js
+function createHandler() {
+  const largeData = loadEntireDatabase(); // 500MB
+  return function handle(req) {
+    return largeData.users[req.userId]; // all 500MB stays alive for this one field
+  };
+}
+```
+
+**A cache with no upper bound:**
+```js
+const cache = new Map();
+
+function getUser(id) {
+  if (!cache.has(id)) {
+    cache.set(id, fetchUser(id)); // grows forever, nothing ever evicted
+  }
+  return cache.get(id);
+}
+```
+
+An LRU cache with a real size limit, or TTL-based eviction, fixes this - the bug isn't caching, it's caching without a ceiling.
+
+<Callout>
+Global state is the slowest version of this same mistake. A global array collecting logs or request history with no trimming logic will eventually show up as a memory graph, but it can take days of production traffic before anyone notices - long enough that nobody connects the growth back to the change that caused it.
+</Callout>
+
+## Actually finding a leak
+
+Watch the trend, not a single snapshot:
+
+```js
+setInterval(() => {
+  const mem = process.memoryUsage();
+  console.log({
+    rss: Math.round(mem.rss / 1024 / 1024) + "MB",
+    heapUsed: Math.round(mem.heapUsed / 1024 / 1024) + "MB",
+    heapTotal: Math.round(mem.heapTotal / 1024 / 1024) + "MB",
+  });
+}, 5000);
+```
+
+If `heapUsed` keeps climbing and never comes back down after garbage collection runs, that's a real leak, not just normal fluctuation.
+
+For anything past that first signal, Node's `--inspect` flag paired with Chrome DevTools lets you capture heap snapshots before and after the suspected leak, then diff them - objects that show up in unexpectedly large numbers, or that grew between snapshots without being released, are the ones worth chasing.
+
+## What actually helps, day to day
+
+Remove event listeners once they're no longer needed - this matters most in long-lived connections like WebSocket sessions, where "no longer needed" can be easy to miss. Cap every in-memory cache; unbounded is never actually a design decision, it's just a limit nobody set yet. Be deliberate about what a closure captures - pull out only the field you need instead of holding the whole object. `WeakMap` and `WeakSet` are worth knowing specifically for caches keyed by objects, since their entries get collected automatically once the key itself is gone.
+
+And test under real load. Leaks that take ten thousand requests to become visible will never show up in a unit test suite, no matter how thorough - they only show up in something that runs long enough to accumulate.

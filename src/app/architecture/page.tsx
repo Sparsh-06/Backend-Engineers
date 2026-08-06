@@ -70,7 +70,7 @@ export default function ArchitecturePage() {
           eyebrow: "Systems · 15 min",
           title: "Queues are not just a buffer",
           description:
-            "Learn what asynchronous work changes—and where it introduces new kinds of failure.",
+            "Learn what asynchronous work changes-and where it introduces new kinds of failure.",
           meta: "Explore queues",
           href: "/concepts",
         },

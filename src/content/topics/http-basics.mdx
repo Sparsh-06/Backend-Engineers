@@ -1,0 +1,46 @@
+---
+title: "HTTP basics: methods, status codes, and headers"
+description: "The vocabulary every API speaks - what GET and POST actually mean, why status codes exist, and what headers carry along for the ride."
+keywords: ["HTTP methods explained", "HTTP status codes explained", "what are HTTP headers", "GET vs POST", "HTTP status code list", "HTTP", "status codes", "headers", "REST methods", "404 error meaning", "500 error meaning", "Content-Type header", "Authorization header", "API vocabulary", "HTTP request format"]
+phase: "Phase 0"
+group: "backend-fundamentals"
+---
+
+## It's a shared vocabulary, not a technology
+
+HTTP doesn't do anything clever on its own. Its entire value is that a client written in Swift and a server written in Go can understand each other without either side knowing the other exists, because they both agree on the same words. Learn the vocabulary once and you can read almost any API you're handed, regardless of what built it.
+
+## Methods say what you're trying to do
+
+| Method | Meaning | Typical use |
+|---|---|---|
+| `GET` | Give me something | Fetching a page, reading a resource |
+| `POST` | Create or submit something | Creating a user, submitting a form |
+| `PUT` | Replace something entirely | Overwriting a resource with a new version |
+| `PATCH` | Update part of something | Changing one field on a resource |
+| `DELETE` | Remove something | Deleting a resource |
+
+None of this is enforced by anything. A `GET` route can technically delete a row if whoever wrote it decided to do that - HTTP won't stop you. But breaking the convention has real consequences, because browsers and caches and crawlers all assume a `GET` is safe to repeat and won't change anything. There's an old, real story of a wiki that wired page deletion to a `GET` link, and Google's own crawler - just following links, as it's supposed to - quietly deleted half the site.
+
+## Status codes tell you where to look before you read anything else
+
+- **2xx - it worked.** `200 OK`, `201 Created`, `204 No Content`.
+- **3xx - go look somewhere else.** `301 Moved Permanently`, `304 Not Modified`.
+- **4xx - the client sent something wrong.** `400 Bad Request`, `401 Unauthorized`, `404 Not Found`, `429 Too Many Requests`.
+- **5xx - the server broke.** `500 Internal Server Error`, `503 Service Unavailable`.
+
+That split matters more than the exact numbers. A spike of 400s usually means some client is sending garbage - a bad app update, a scraper hitting an old endpoint. A spike of 500s means you broke something. Different pager, different person, different fix. Get in the habit of checking which bucket an incident falls in before you open a single log file.
+
+## Headers carry the context nobody wants stuffed into the body
+
+```
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOi...
+Cache-Control: max-age=3600
+```
+
+`Content-Type` tells the other side how to parse what's coming - JSON, HTML, a raw image. `Authorization` carries proof of who's asking. `Cache-Control` tells anything sitting between client and server how long it's allowed to reuse this response before asking again.
+
+Headers are also where a lot of quiet, annoying bugs hide, because they're easy to forget exist. A missing `Content-Type` can make a perfectly valid JSON body get parsed as plain text. A `Cache-Control` set too aggressively can make a fix you just deployed invisible to users for an hour. They're metadata, but they're load-bearing metadata.
+
+None of this vocabulary is optional knowledge for anyone touching a backend. Every framework, every API client, every piece of monitoring you'll ever look at assumes you already know what a 401 means versus a 403, or why a request went out as a POST instead of a PUT. Get fluent in methods, status codes, and headers now, and every API you open later - documented or not - becomes readable on sight.
