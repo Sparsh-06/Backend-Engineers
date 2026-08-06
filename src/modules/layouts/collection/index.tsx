@@ -92,33 +92,6 @@ export default function Collection({ label, title, intro, items }: Props) {
           ))}
         </div>
       </section>
-      <section className="px-5 pb-20 pt-8 sm:px-8 lg:px-12">
-        <div className="mx-auto grid max-w-6xl gap-4 rounded-[2rem] border border-black/10 bg-white/35 p-6 backdrop-blur sm:p-8 lg:grid-cols-[1fr_1.2fr] lg:gap-8">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#ff4d00]">
-              Built to grow
-            </p>
-            <h2 className="mt-4 max-w-md text-3xl font-semibold tracking-[-0.05em] sm:text-4xl">
-              A structure that can hold the whole backend stack.
-            </h2>
-          </div>
-          <div className="grid gap-3 md:grid-cols-3">
-            {collectionSections.map((section) => (
-              <div
-                key={section.title}
-                className="rounded-[1.5rem] border border-black/10 bg-[#eee9e3]/70 p-5"
-              >
-                <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-black/65">
-                  {section.title}
-                </h3>
-                <p className="mt-3 text-sm leading-relaxed text-black/60">
-                  {section.description}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
       <footer className="border-t border-black/15 px-5 py-8 sm:px-8 lg:px-12">
         <div className="mx-auto flex max-w-6xl flex-col justify-between gap-4 text-xs font-medium text-black/55 sm:flex-row">
           <span>© {new Date().getFullYear()} Backend Engineer</span>
