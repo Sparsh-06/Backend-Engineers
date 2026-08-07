@@ -120,9 +120,15 @@ const organizationSchema = {
   name: "Backend Engineer",
   url: "https://www.backendengineer.in",
   logo: "https://www.backendengineer.in/favicon.png",
+  email: "contact@backendengineer.in",
   founder: {
     "@type": "Person",
     name: "Sparsh Sharma",
+  },
+  contactPoint: {
+    "@type": "ContactPoint",
+    email: "support@backendengineer.in",
+    contactType: "customer support",
   },
   sameAs: [],
 };

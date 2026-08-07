@@ -250,6 +250,15 @@ export default function Home() {
               </div>
             ))}
           </div>
+          <p className="mt-14 border-t border-black/15 pt-8 text-sm text-black/55">
+            Still have a question?{" "}
+            <a
+              href="mailto:support@backendengineer.in"
+              className="font-semibold text-black underline decoration-black/25 underline-offset-4 hover:decoration-black"
+            >
+              support@backendengineer.in
+            </a>
+          </p>
         </div>
       </section>
 
@@ -346,7 +355,13 @@ export default function Home() {
               Subscribe
             </button>
           </form>
-          <span className="block mt-4 text-[10px] text-white/40 font-mono">One email a month, easy to unsubscribe from.</span>
+          <span className="block mt-4 text-[10px] text-white/40 font-mono">
+            One email a month, easy to unsubscribe from. Sent from{" "}
+            <a href="mailto:promotions@backendengineer.in" className="underline decoration-white/25 hover:decoration-white">
+              promotions@backendengineer.in
+            </a>
+            .
+          </span>
         </div>
       </section>
 
@@ -359,6 +374,12 @@ export default function Home() {
               <p className="mt-4 max-w-xs text-xs leading-relaxed">
                 A visual library built for curious software engineers. Demystifying systems architecture, database design, and cloud platform mechanics with visual-first guides.
               </p>
+              <a
+                href="mailto:contact@backendengineer.in"
+                className="mt-5 inline-block text-xs font-semibold text-white/75 underline decoration-white/25 underline-offset-4 hover:text-white hover:decoration-white"
+              >
+                contact@backendengineer.in
+              </a>
             </div>
             <div>
               <h4 className="text-xs uppercase font-semibold text-white tracking-widest mb-4">Learning paths</h4>
