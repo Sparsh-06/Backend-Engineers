@@ -1,0 +1,161 @@
+Accelerating Search and Ingestion with High-Performance gRPC™ in OpenSearch™
+Karen Xu
+Karen Xu
+Staff Software Engineer
+
+Xi Lu
+Xi Lu
+Software Engineer
+
+Shuyi Zhang
+Shuyi Zhang
+Engineering Manager
+
+2+
+
+Share this article
+
+
+
+
+Introduction
+Search underpins nearly every real-time experience at Uber: from matching riders and drivers, to fraud detection, to powering recommendations on Uber Eats. As these systems grew in traffic, payload size, and latency sensitivity, we hit a familiar industry limit: REST/JSON was no longer just slower—it was constraining how our search platform could evolve.
+
+Internally, much of Uber’s infrastructure already communicates using gRPC™ and Protobuf. These systems rely on strongly typed contracts, efficient binary serialization, and streaming-friendly transports. But OpenSearch, which Uber had standardized as the foundation for search and retrieval, historically exposed only REST/JSON APIs. Bridging these two worlds required translation layers that added latency, complexity, and operational risk.
+
+Rather than treating this mismatch as an integration problem, we approached it as an opportunity to advance Uber’s Search Platform and OpenSearch itself.
+
+In this post, we’ll walk through why we introduced native gRPC endpoints in OpenSearch, how we designed them to coexist with REST, and what we learned after deploying them in production at Uber. We’ll also share the performance gains we observed, particularly for ingestion and vector search workloads, and how this work contributes back to the OpenSearch open-source ecosystem.
+
+Architecture
+We designed and implemented native gRPC support directly in OpenSearch to avoid maintaining long-term forks or translation layers. This approach ensured that the solution would benefit from Uber’s production workloads and the broader OpenSearch community.
+
+Below, we outline the resulting architecture and how gRPC and REST coexist as first-class transports within OpenSearch. This design intentionally preserves REST for compatibility and operational simplicity, while enabling gRPC for performance-critical and high-throughput workloads.
+
+gRPC Server 
+The core component of the native gRPC transport is the server implementation in OpenSearch. 
+
+To offer flexibility, the gRPC transport is offered as a module. We enable the module alongside the REST transport by running on different sets of ports, allowing both REST and gRPC requests. Figure 1 shows how only the client-server layer differs between the REST and gRPC transports, while the internal node-to-node logic remains shared. 
+
+Architecture diagram illustrating a search engine system with interconnected modules: Execution, Core, Conversion, SPI, Handlers, Transport, and Clients. Color-coded arrows represent gRPC, HTTP, shared, and SPI registration paths, showing data flow between components such as gRPC/HTTP clients and servers, protocol conversion utilities, service handlers, and extension layers for query processing.
+Figure 1: How the gRPC transport works in parallel with the REST transport in OpenSearch core.
+
+
+To offer extensibility with other plugins and gRPC services, the gRPC transport publishes an SPI (service provider interface) to allow other query types implemented outside of core (for example, the k-NN plugin) to extend this interface to provide their own Proto-to-POJO conversion utility methods. Plugins are also able to implement and expose their own gRPC services and hook them into the main transport-gRPC module. 
+
+API Coverage
+For most OpenSearch customers, including those at Uber, the most latency-sensitive APIs are search and ingestion. We prioritized these APIs first:  Search and Bulk , where gRPC’s performance characteristics provide the clearest benefit. 
+
+JSON to Protobuf Conversion
+A gRPC transport is only as strong as its data model. To support OpenSearch natively over gRPC while keeping the JSON and Protobuf APIs in sync, we established conversion rules and built automation tooling for spec-to-Proto conversion.
+
+The conversion of the JSON-based API specification to Protobuf looks something like what’s shown in Figure 2.  
+
+Comparison between an API specification in YAML format and its equivalent Protobuf definition, with arrows mapping corresponding elements such as endpoints, request and response bodies, and data types between the two formats.
+Figure 2: A simplified example of how a Search JSON specification is converted to a Search RPC endpoint and Protobuf schema.
+The end result of this automation is a reliable, repeatable mechanism for maintaining long-term API parity and backward compatibility between OpenSearch’s REST and gRPC interfaces.
+
+To make gRPC viable as a long-term, first-class transport, we needed a way to evolve Protobuf and REST APIs together without manual drift or compatibility risk. In practice, this required more than straightforward code generation: REST and Protobuf have fundamentally different semantics and evolution constraints.
+
+To address this, we built an end-to-end automated pipeline with three stages: preprocessing, core conversion, and postprocessing.
+
+Flowchart illustrating the 'Auto proto convert workflow' starting with downloading the opensearch-spec release, followed by preprocessing steps (Filter, Sanitizer, Schema Modifier, Vendor Extension processor), converting to protobuf, post processing, and generating code via pull request and merge into protos/generated directory.
+Figure 3: The steps of the automated protobuf conversion workflow.
+During preprocessing, we resolve semantic mismatches between REST APIs and Protobuf schemas. REST specifications often rely on REST-specific conventions—such as method-and-path semantics, query parameters, and status-code-driven behavior—while Protobuf requires explicit, strongly typed request/response messages. We normalize the OpenAPI specification and apply a set of conversion rules that make these implicit REST behaviors explicit and safe to generate into Protobuf.
+
+Next, the core conversion step translates the preprocessed OpenAPI specification into Protobuf artifacts. While OpenAPI Generator provides mature support for generating clients and servers in many JSON-based formats, it didn’t have equivalent support for robust JSON-to-Protobuf conversion. To address this gap, we derived and contributed a set of conversion  rules to OpenAPI Generator, ensuring that gRPC APIs stay structurally aligned with their REST counterparts as the API surface evolves.
+
+Finally, postprocessing enforces long-term wire compatibility. Unlike REST, Protobuf APIs can’t tolerate changes such as field renumbering without breaking existing clients. The pipeline performs compatibility checks against previously generated Protobufs and applies safeguards to ensure new changes don’t invalidate older clients.
+
+By codifying these rules into an automated workflow, we ensured that gRPC could remain a trustworthy, first-class API surface as OpenSearch continues to evolve.
+
+Uber Integration Example: Search Gateway
+At Uber, we integrated the Search and Bulk gRPC APIs across our tech stack across multiple components of our search stack.
+
+One example is the OpenSearch Gateway,  a service that proxies all OpenSearch customer search and ingest requests at Uber, before sending to an OpenSearch cluster. The purpose is to offer additional security, observability, rate-limiting, and auditing.
+
+With the introduction of gRPC, we could resolve tech debt and improve performance by removing the adaptor layer, and directly using a pass-through method to send the client’s protobufs to the OS gRPC endpoint. 
+
+Before native gRPC was supported, Search Gateway under the hood had to use an in-house adaptor to transpile Protobuf requests to JSON to send to OS REST endpoints and the JSON response back to Protobuf. This added both latency and overhead to each customer’s OpenSearch requests. 
+
+Diagram illustrating a search gateway architecture. Users interact with an API via HTTP/2 (gRPC/Protobuf), which passes requests to an adaptor containing ProtoToJsonMapper and JsonToProtoMapper modules. The adaptor communicates with Muttley, which interfaces with an OpenSearch cluster (composed of master nodes, data nodes, and client nodes) using HTTP/1 (REST/JSON). Arrows indicate the flow of requests and responses through the system.
+Figure 4: Architecture of OpenSearch gateway with an internal translation layer, before native gRPC endpoints were introduced to OpenSearch.
+Performance Impact 
+One of the key drivers of gRPC adoption was for its performance benefits. With gRPC, we realized many latency and throughput gains at Uber, as compared to REST. 
+
+Bulk
+M3 is Uber’s in-house metrics system. With gRPC, M3 saw a roughly 60% p99 write latency reduction in production (from 34.1ms  to 13.6ms).
+
+Orange vertical lines represent index write latency over time, with most values clustered below 75 ms and occasional spikes reaching up to 160 ms. The x-axis shows dates from 12/12 to 12/21, and the y-axis ranges from 0 to 200 ms. A legend on the right indicates different percentiles, with p99 highlighted, and average and maximum values listed.
+Figure 5: Metrics show a drastic reduction in p99 index write latency.
+
+
+Similarly, p50 also saw a notable reduction of  around34% (from 15.8ms to 10.5 ms).
+
+Graph displaying 'Index Write Latency' over time, with latency values on the y-axis (0 to 200 ms) and dates on the x-axis (from 12/12 to 12/21). The green line represents 'short p50' latency, showing frequent spikes mostly below 75 ms, with occasional peaks up to 160 ms. The legend indicates maximum and average values for short p50, p90, p95, and p99 percentiles.
+Figure 6: Metrics show a drastic reduction in p50 index write latency.
+Another place we found performance gains was with the M3 Indexer. The Indexer is responsible for ingesting millions of data points per second into M3. A key metric for M3 is the maximum indexing delay: the amount of time for a metric to be indexed into M3. This is a top-line business-impacting metric, especially critical during failovers. With gRPC, the max indexing delay was reduced for the M3 short index by 20-35%.
+
+Line graph comparing REST and gRPC protocols for failover max indexing delay (minutes) versus requests per second (RPS). REST is represented by an orange line and gRPC by a green line. At 400 RPS, both have low delays, but as RPS increases to 600 and 800, REST's delay rises more sharply (up to 5 minutes), while gRPC remains lower (up to 4 minutes). Text annotations highlight that gRPC achieves 33% and 20% lower delay at 600 and 800 RPS, respectively.
+Figure 7: Maximum indexing delay reduced dramatically at higher QPS for gRPC compared to REST.
+Additionally, Uber OpenSearch customers run Apache Spark™ jobs to batch index  their data into their OpenSearch clusters. Migrating these batch ingestion jobs to use the gRPC Bulk API under the hood yielded a 20-35% reduction in job runtime. 
+
+Search
+Alongside bulk, we found that the greatest gains were realized for vector search queries. These types of search requests include a large vector on the request-side. Vectors are very inefficiently serialized in JSON, as opposed to using a packed encoding format for a repeated float type in Protobuf. 
+
+Delivery shopping lists, powering recommendations for grocery stores at Uber Eats, saw a roughly 53% p50 search latency reduction (from 83ms to 38ms), and a roughly 43% p95 reduction (from 114ms to 64ms). p99 saw a roughly 14% reduction (from 205ms to 176ms), due to long-tail large queries.
+
+Two side-by-side bar charts with yellow and blue bars representing different data series, showing fluctuating values across the horizontal axis. Legends and data labels are highlighted in pink boxes at the bottom right of each chart.
+Figure 8: Metrics show REST search latency (left) is much higher than gRPC search latency (right).
+
+
+Benefits for KNN search are even greater with larger vector dimensions (with 1,572 dimensions showing larger latency reductions than 512 and 256 dimensions).
+
+Bar chart comparing request sizes in bytes for REST/JSON (orange) and gRPC/Protobuf (green) across three data points (1572, 512, 256). REST/JSON consistently has larger request sizes (40523, 14531, 7954) than gRPC/Protobuf (4590, 2500, 1500). Blue dots and percentages above each pair of bars indicate savings percentages (88.7%, 82.8%, 81.1%) for gRPC/Protobuf. The left y-axis shows request size in bytes, the right y-axis shows savings percentage, and the legend identifies the two protocols.
+Figure 9: Higher-dimension vectors experience larger performance boosts with gRPC than lower dimension vectors.
+Another place where we saw performance gains was with documents represented with binary formats. OpenSearch REST users primarily use the JSON format for document representation. With gRPC, it was easy to encode documents into various formats, such as CBOR or SMILE (a binary representation of JSON).
+
+In particular, gRPC SMILE search was:
+
+30% faster than REST JSON
+45% faster than gRPC JSON 
+47% faster than REST SMILE
+Line graph comparing latency (ms) versus payload size (MB) for four protocols: gRPC JSON (red), REST JSON (orange), gRPC SMILE (green), and REST SMILE (blue). Latency increases with payload size for all protocols. gRPC SMILE consistently shows the lowest latency, while REST SMILE and gRPC JSON have the highest latencies at larger payloads. Data points are labeled with their respective latency values.
+Figure 10: gRPC SMILE search offers the lowest latency, compared to all other API representations (REST) and data formats (JSON, SMILE) combinations.
+Performance Summary
+From our performance analysis, we concluded that gRPC offers better performance for: 
+
+Workloads with large request sizes
+Higher throughput at larger RPS
+Documents represented with binary document formats
+Conclusion
+Introducing native gRPC endpoints to OpenSearch allowed us to close a major gap between Uber’s internal service ecosystem and its next-generation search platform.
+
+By aligning OpenSearch with the same Protobuf-based contracts used across Uber, we eliminated translation layers, simplified integrations, and unlocked meaningful performance gains—especially for high-throughput ingestion and vector-heavy search workloads. Just as importantly, we did this while preserving REST compatibility, enabling teams to migrate incrementally rather than all at once.
+
+One of our biggest takeaways is that API representation is not a surface-level choice. At scale, it shapes system evolution, performance ceilings, and developer velocity. As workloads increasingly involve large payloads, streaming, and machine learning-driven queries, these considerations become even more critical.
+
+Beyond Uber, this work extends OpenSearch with a first-class gRPC transport that benefits the broader community. Native gRPC support enables new usage patterns, stronger typing, and better performance characteristics for anyone building latency-sensitive search systems.
+
+Next Steps   
+Looking ahead, we plan to expand gRPC API coverage, deepen streaming support, and continue improving security and observability in the gRPC transport. We invite engineers to explore these capabilities, try them in their own systems, and contribute to the OpenSearch ecosystem as it continues to evolve.
+
+Acknowledgments
+We’d like to give a huge thanks to the mentorship and guidance from Uber leadership (Yupeng Fu, Shubham Guptas) and the AWS® engineers who partnered with us to build the transport, query converters, and Protobuf tooling (Andrew Ross, Finnegan Carroll, Peter Zhu, Saurabh Singh). We also appreciate the SIA, LucenePlus, and customer teams at Uber who partnered on migrations and testing.
+
+Cover Photo Attribution: “Light trails @ night” by mostaque is licensed under CC BY 2.0.
+
+Apache Lucene is a trademark of the Apache Software Foundation.
+
+
+AWS® and the Powered by AWS logo are trademarks of Amazon.com, Inc. or its affiliates.
+
+
+gRPC is a trademark of The Linux Foundation. 
+
+OpenSearch™ is a trademark of LF Projects, LLC.
+
+
+
+Stay up to date with the latest from Uber Engineering—follow us on LinkedIn for our newest blog posts and insights.
+

@@ -1,0 +1,43 @@
+---
+title: "What is an API, really?"
+description: "An API isn't a technology. See what actually separates an API from a library, and from a framework."
+keywords: ["what is an api", "api vs library vs framework", "what does api stand for", "api explained for beginners", "how do apis actually work", "API", "library", "framework", "SDK", "interface", "contract", "public API", "internal API", "api documentation", "rest api basics"]
+phase: "Phase 0"
+group: "backend-fundamentals"
+---
+
+## API is a role, not a technology
+
+People use "API" like it names a specific thing - a REST API, a JSON API, some object sitting out on the internet. Really it just means: a defined way for one piece of code to ask another piece of code to do something, without needing to know how that something actually happens inside.
+
+That's it. No network required, no JSON required. A function signature is technically an API - a contract that says "give me these inputs, I'll give you this output," with everything behind that promise none of your business.
+
+## Library, framework, API - three different axes
+
+These three get used almost interchangeably, and they're not the same kind of thing at all.
+
+A **library** is code you call. You're in charge - your code decides when to import it, when to call it, what happens next. `lodash`, a date-parsing package, a hashing utility - you're the one driving.
+
+A **framework** is code that calls you. You write functions in the shape it expects, plug them in, and it decides when and how to run them. Express calling your route handler when a request matches. React calling your component function when state changes. The control is inverted - that's usually called "inversion of control," and it's the actual defining trait of a framework, not just "a library with more features."
+
+An **API** is neither of those - it's the *interface itself*, the described contract. A library has an API (its exported functions). A framework has an API (the hooks and lifecycle methods you implement). A remote service exposes an API over HTTP. Same word, three completely different delivery mechanisms.
+
+<Callout>
+"Is this a library or a framework?" is really asking who's in control. If your code calls it, it's a library. If it calls your code, it's a framework. Either way, both of them expose an API - the actual set of promises about what will happen if you use them correctly.
+</Callout>
+
+## What makes a good API
+
+A good API hides complexity without hiding control. `fetch()` doesn't make you think about TCP sockets - that's the hiding part. But it still lets you set headers, abort the request, read the status code - that's the control part. An API that hides too much becomes impossible to debug when it breaks. One that hides too little isn't actually saving you any work.
+
+This is why API design is treated as a real skill, not an afterthought. A REST endpoint, a public SDK, a set of internal functions your team calls from three different services - all of them are API design decisions: what to expose, what to hide, and what promise you're willing to keep stable once someone else starts depending on it.
+
+## Public vs internal, and why the distinction matters
+
+An internal API - a function two files in your own codebase share - can change freely. You control every caller; refactor it, rename it, break it, fix all the call sites in the same commit.
+
+A public API - anything an external client, a mobile app, or another team's service depends on - is a promise you can't take back cheaply. Change the shape of a public API's response and you break every client that assumed the old shape, often without knowing who they even are. This is the entire reason API versioning (`/v1/`, `/v2/`) exists: not because v2 is better engineering, but because v1 is a promise already made to people you can't directly coordinate with.
+
+## Mental model to keep
+
+Every time you see "API," ask two questions: who's in control (library vs framework), and who's depending on this staying the same (internal vs public). Those two questions matter more than whether it happens to be REST, GraphQL, or a plain function call - the transport is the least interesting part of the word.

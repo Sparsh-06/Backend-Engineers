@@ -1,0 +1,54 @@
+---
+title: "What is middleware, really?"
+description: "The code that runs between a request arriving and your logic handling it, and why almost everything routes through it."
+keywords: ["what is middleware", "middleware explained for beginners", "middleware vs handler", "express middleware explained", "how does middleware work", "middleware", "request pipeline", "handler", "next()", "auth middleware", "logging middleware", "middleware chain", "interceptor", "request lifecycle", "api middleware"]
+phase: "Phase 0"
+group: "backend-fundamentals"
+---
+
+## The thing that runs before your code runs
+
+A request arrives at your server. Before it reaches the specific piece of code that actually handles "get user 42" or "create an order," it usually passes through a series of smaller functions first - checking if the user is logged in, logging that the request happened, parsing the body into something usable, checking whether this client has hit a rate limit. That chain of functions is middleware, and the code you actually think of as "your logic" is often the last stop, not the whole trip.
+
+## What middleware looks like in practice
+
+```js
+function logRequest(req, res, next) {
+  console.log(`${req.method} ${req.url}`);
+  next();
+}
+
+function requireAuth(req, res, next) {
+  if (!req.headers.authorization) {
+    return res.status(401).send("Unauthorized");
+  }
+  next();
+}
+
+app.use(logRequest);
+app.use(requireAuth);
+
+app.get("/orders", (req, res) => {
+  res.json(getOrders());
+});
+```
+
+Each middleware function gets a chance to look at the request, do something with it, and then either pass control forward by calling `next()`, or stop the chain entirely by sending a response itself (like `requireAuth` does when there's no token). The request flows through each piece in the order they were registered, like an assembly line where any station can wave the item through or pull it off the line.
+
+## Why this shape exists at all
+
+The alternative to middleware is writing the same checks inside every single route handler - checking auth in the orders handler, checking auth in the users handler, checking auth in every other handler that needs it. That's not just repetitive, it's a reliability problem: forget the check in one new route, and you've shipped an unprotected endpoint without anyone deciding that on purpose.
+
+<Callout>
+Middleware exists to pull cross-cutting concerns - things that apply to many routes, not just one - out into a single place that runs automatically. Auth, logging, rate limiting, CORS headers, body parsing: none of these are specific to any one endpoint's business logic, so none of them belong duplicated inside every handler.
+</Callout>
+
+## Order matters, and it's easy to get backwards
+
+Middleware runs in the order it's registered, and that order is not cosmetic. Auth middleware has to run before the handler that assumes a logged-in user exists. Logging middleware usually goes first, so it captures every request regardless of what happens next. A body-parsing middleware has to run before anything that reads `req.body`, or that data simply won't exist yet.
+
+A surprisingly common bug in real codebases is middleware registered in the wrong order - rate limiting placed after the expensive database call it was supposed to prevent, or auth checked after a handler already did work it shouldn't have been allowed to do. The chain executes top to bottom, and nothing about the code visually warns you if that order is wrong.
+
+## Middleware isn't unique to any one framework
+
+Express popularized the exact `(req, res, next)` shape, but the concept itself shows up everywhere under different names - interceptors in Axios and Angular, filters in Spring, plugs in Elixir's Phoenix. Different syntax, same underlying idea: a pipeline of small, composable steps a request passes through before it reaches whatever's actually supposed to handle it. Once you recognize the pattern in one framework, you'll spot it in every framework you touch after.

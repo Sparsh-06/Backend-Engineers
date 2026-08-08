@@ -1,0 +1,43 @@
+---
+title: "Synchronous vs asynchronous, before you touch code"
+description: "The idea underneath every async keyword in every language, explained without a single line of code first."
+keywords: ["synchronous vs asynchronous explained", "what does async mean", "blocking vs non-blocking", "sync vs async simple explanation", "asynchronous programming for beginners", "synchronous", "asynchronous", "concurrency", "parallelism", "callback", "blocking call", "non-blocking call", "async await", "event driven", "task queue"]
+phase: "Phase 0"
+group: "backend-fundamentals"
+---
+
+## Before any code, a phone call
+
+Call someone and ask a question - you wait, in silence, until they answer, and only then can you do anything else. That's synchronous: one thing happens, then the next thing happens, strictly in order, and nothing moves forward until the current thing is done.
+
+Now text the same question instead. You send it, and immediately go do something else - make coffee, answer another message - and whenever the reply comes back, you deal with it then. That's asynchronous: you started something, didn't wait around for it, and got notified later when it was ready.
+
+Nearly every confusing thing about `async`/`await`, callbacks, promises, and threads in any programming language is a variation on this one distinction. Get the phone-call-versus-text picture solid first, and the syntax in whatever language you use is just vocabulary for the same idea.
+
+## Why "waiting" is the actual cost
+
+The reason this distinction exists at all is that some operations are slow relative to how fast a computer can think - reading a file off disk, waiting for a database, calling another server over the network. All of these take a comparatively enormous amount of time, and during that time the computer's processor is doing absolutely nothing except sitting there.
+
+Synchronous code wastes that time. If your program does nothing else while waiting for a slow operation, that capacity to do other work just evaporates. Asynchronous code is a way of saying: don't waste it - go do something else useful, and come back to this later.
+
+## Concurrency and parallelism aren't the same word
+
+These two get flattened together constantly, and they're actually different claims.
+
+**Concurrency** means multiple things are in progress at once, but not necessarily happening at the exact same instant - like one person handling several conversations by switching between them quickly. Asynchronous code on a single CPU core is concurrent this way: nothing is truly simultaneous, but multiple tasks are all "in flight."
+
+**Parallelism** means things are literally happening at the same instant, on separate processors or cores - like two people each handling their own conversation, at once, for real.
+
+<Callout>
+You can have concurrency without parallelism - a single-threaded async runtime juggling a thousand waiting network calls is exactly this. You can also have parallelism that isn't concurrent in the interesting sense - running the same calculation on four cores at once is parallel, but it's one task, not many. The words describe different things, even though "make it faster" is the goal behind both.
+</Callout>
+
+## What "blocking" actually means
+
+A blocking call is one that stops everything else until it finishes - the phone call. A non-blocking call starts the work and returns control immediately, letting other things happen while it's still in progress - the text message.
+
+This is the exact vocabulary that shows up later once you're reading real code: `fs.readFileSync()` blocks, `fs.readFile()` with a callback doesn't. A synchronous database driver blocks the calling thread; an async one doesn't. Same underlying idea, just applied to a specific function call instead of a phone.
+
+## Why this matters before you write a line of async code
+
+Every mistake people make with `async`/`await` - forgetting to `await` something, awaiting things in sequence that could have run at the same time, assuming two `await` calls next to each other are somehow linked - comes from losing track of this basic model. If you can't picture whether a given line is "waiting in silence" or "sent and moving on," the syntax won't save you. Get the mental model right first; the keywords are just how each language lets you say it.

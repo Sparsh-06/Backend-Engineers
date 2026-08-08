@@ -116,7 +116,7 @@ export default function TopicDetail(props: TopicDetailProps) {
         <div className="mx-auto grid max-w-7xl gap-10 xl:grid-cols-[220px_minmax(0,680px)_190px] xl:justify-center xl:gap-14">
           {/* Left sidebar - group navigation */}
           <aside className="hidden xl:block">
-            <div className="sticky top-28 border-r border-black/10 pr-5">
+            <div className="sidebar-scroll sticky top-28 max-h-[calc(100vh-8rem)] overflow-y-auto border-r border-black/10 pr-5 pb-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-black/45">
                 In this group
               </p>
@@ -315,7 +315,7 @@ export default function TopicDetail(props: TopicDetailProps) {
 
           {/* Right sidebar - table of contents */}
           <aside className="hidden xl:block">
-            <div className="sticky top-28 border-l border-black/10 pl-5">
+            <div className="sidebar-scroll sticky top-28 max-h-[calc(100vh-8rem)] overflow-y-auto border-l border-black/10 pl-5 pb-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-black/45">
                 On this page
               </p>

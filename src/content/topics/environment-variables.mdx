@@ -1,0 +1,49 @@
+---
+title: "Environment variables and configuration, done right"
+description: "Where secrets and settings actually belong, and why hardcoding them into your code is a problem waiting to happen."
+keywords: ["what are environment variables", "env variables explained", "how to store secrets safely", ".env file explained", "configuration management backend", "environment variables", ".env file", "secrets management", "config management", "twelve factor app", "API keys", "hardcoded secrets", "dotenv", "staging vs production config", "environment-specific config"]
+phase: "Phase 0"
+group: "backend-fundamentals"
+---
+
+## The problem hardcoding creates
+
+```js
+const dbPassword = "prod-password-123";
+```
+
+This works. It also means the password is now sitting in your source code, in your git history forever even if you delete the line later, visible to anyone with repo access, and identical whether the code is running on your laptop or in production. Change the password and you have to edit code and redeploy just to rotate a credential - which means, in practice, nobody rotates it.
+
+Environment variables exist to pull exactly this kind of value out of the code entirely. The code says "read whatever's in `DB_PASSWORD`" - the actual value lives outside the code, injected by whatever's running it.
+
+```js
+const dbPassword = process.env.DB_PASSWORD;
+```
+
+Same code, but now the actual secret can be different in every environment, never touches version control, and can be rotated without a single code change.
+
+## What an environment variable actually is
+
+It's a key-value pair that the operating system (or whatever's launching your process - a shell, a container runtime, a hosting platform) makes available to a running program. Nothing fancier than that. Set one before starting a process, and that process can read it:
+
+```bash
+DB_PASSWORD=secret123 node server.js
+```
+
+In local development, a `.env` file is the common convention - a plain text file of `KEY=value` lines that a library like `dotenv` loads into `process.env` at startup, so you don't have to type them out by hand every time.
+
+<Callout>
+A `.env` file should never be committed to git. It's so common to accidentally commit one anyway that `.gitignore` templates for almost every language and framework exclude it by default - worth checking that yours actually does, rather than assuming.
+</Callout>
+
+## Config, not just secrets
+
+Environment variables aren't only for secrets - they're for anything that legitimately differs between where the code is running: a database URL that points somewhere different in staging versus production, a feature flag that's on in one environment and off in another, the port the server listens on.
+
+The underlying principle (formalized as one of the points in the well-known "twelve-factor app" methodology) is: the code should be identical everywhere it runs. What changes between environments should live entirely in configuration, never in a branch of code that checks "if we're in production, do X."
+
+## What still shouldn't go in an environment variable
+
+Not everything belongs here. Environment variables are plain text, readable by anything with access to the process, and not encrypted at rest by default in most setups. For genuinely sensitive secrets at any real scale - production database credentials, signing keys - dedicated secrets managers (AWS Secrets Manager, HashiCorp Vault, or a cloud provider's equivalent) exist specifically because "just an env var" doesn't give you rotation, access auditing, or fine-grained permissions.
+
+For a side project or a small team, environment variables plus a `.env` file kept out of git is a completely reasonable stopping point. The distinction to hold onto is: environment variables move secrets *out of code*. A secrets manager moves them *out of plain text* too. Different problems, and you don't need the second one until the first one stops being enough.

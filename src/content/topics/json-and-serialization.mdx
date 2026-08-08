@@ -1,0 +1,57 @@
+---
+title: "JSON and data serialization, explained simply"
+description: "Why data has to be flattened into text before it can travel anywhere, and what gets lost along the way."
+keywords: ["what is json", "what is serialization", "json explained for beginners", "why do apis use json", "serialization vs deserialization", "JSON", "serialization", "deserialization", "data format", "XML vs JSON", "marshalling", "schema", "data types over the network", "content negotiation", "binary formats"]
+phase: "Phase 0"
+group: "backend-fundamentals"
+---
+
+## The problem underneath JSON
+
+A running program holds data in memory as objects, pointers, and typed values - a JavaScript object, a Python dict, a Java class instance. None of that structure survives being sent over a network. A network connection can only carry a stream of bytes; it has no idea what "an object" is.
+
+**Serialization** is the process of flattening a rich, in-memory structure into something that can actually travel - usually text, sometimes raw binary. **Deserialization** is the reverse: taking those bytes back and rebuilding the structure on the other end. Every API call, every file save, every message queue payload involves this round trip, whether or not anyone thinks about it explicitly.
+
+## Why JSON specifically won
+
+```json
+{
+  "id": 42,
+  "name": "Ada",
+  "active": true,
+  "roles": ["admin", "editor"]
+}
+```
+
+JSON (JavaScript Object Notation) became the default serialization format for web APIs for a fairly boring but decisive reason: it's readable by a human without any tooling, it maps closely onto how most languages already represent objects, arrays, strings, numbers, and booleans, and it's lightweight compared to the XML it mostly replaced.
+
+XML technically does more - namespaces, schemas, attributes versus elements - but that extra structure came at a real cost in verbosity and parsing complexity, for benefits most web APIs never needed. JSON won by being *just enough* format for the common case.
+
+## What gets lost in translation
+
+Serialization isn't lossless, and this is the part that causes real bugs.
+
+JSON has exactly one number type - no distinction between an integer and a float, and no way to represent a number larger than roughly 2^53 without losing precision. A 64-bit ID or a financial amount that needs exact decimal precision can silently corrupt if you're not careful, which is why large IDs are often sent as strings instead of numbers in real APIs.
+
+JSON has no date type at all. Every timestamp you've ever seen in a JSON payload is a string, by convention (usually ISO 8601), not something JSON itself understands - parsing it back into an actual date object is entirely up to whichever code reads it.
+
+<Callout>
+This is also why two systems can "agree" on a JSON payload and still disagree in practice - one side reads a number as an integer, the other reads the same value as a float, and a downstream comparison quietly fails. The format doesn't enforce meaning, only shape.
+</Callout>
+
+## Content negotiation: how the two sides agree on format
+
+A server can usually respond in more than one format, and the client says which one it wants using the `Accept` header, while the server states what it's actually sending back using `Content-Type`:
+
+```
+Accept: application/json
+Content-Type: application/json; charset=utf-8
+```
+
+This is content negotiation - a small, easy-to-miss mechanism that lets the same endpoint serve JSON to one client and, say, XML to a legacy one, without either side needing to guess.
+
+## Beyond JSON: when text isn't good enough
+
+JSON's readability is also its cost - every key name gets repeated in every single object, brackets and quotes add overhead, and parsing text is slower than parsing raw bytes. For high-throughput systems (service-to-service calls inside a data center, for instance), binary formats like Protocol Buffers or MessagePack trade human-readability for smaller payloads and faster parsing, at the cost of needing a shared schema both sides agree on ahead of time.
+
+Most APIs never need this tradeoff. But it's worth knowing it exists, because "why isn't this JSON" is a legitimate design decision in high-performance systems, not just an obscure alternative nobody uses.

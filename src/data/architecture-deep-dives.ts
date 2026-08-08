@@ -1,0 +1,365 @@
+export type DeepDiveSection = {
+  heading: string;
+  body: string[];
+};
+
+export type PipelineStage = {
+  label: string;
+  detail: string;
+  /** Short stat or number worth surfacing on the node itself, e.g. "~1M msg/sec". */
+  stat?: string;
+};
+
+export type ArchitectureDeepDive = {
+  slug: string;
+  companySlug: string;
+  title: string;
+  tagline: string;
+  seoKeywords: string[];
+  intro: string;
+  keyTermsUsed: { term: string; definition: string }[];
+  pipeline: PipelineStage[];
+  sections: DeepDiveSection[];
+  takeaway: string;
+  sourceTitle: string;
+  sourceAuthors: string[];
+  sourceUrl: string;
+  sourceNote: string;
+};
+
+export const architectureDeepDives: ArchitectureDeepDive[] = [
+  {
+    slug: "real-time-graph",
+    companySlug: "netflix",
+    title: "How Netflix built a real-time graph of what its members are doing",
+    tagline: "Turning millions of scattered events per second into one connected picture, as it happens",
+    seoKeywords: [
+      "netflix real-time graph architecture",
+      "netflix kafka flink architecture",
+      "netflix data pipeline explained",
+      "netflix stream processing",
+      "netflix graph database",
+      "netflix event streaming architecture",
+      "how netflix processes real-time data",
+      "netflix apache flink",
+      "netflix apache kafka",
+    ],
+    intro:
+      "Netflix isn't just a video player anymore - it also has ads, live events, and mobile games all under one account. That creates a real problem: how do you know that someone watching Stranger Things on their phone, finishing the episode on their TV, and then playing the Stranger Things mobile game are all the same continuous story, not three unrelated events? Netflix's data engineering team solved this by building what they call a Real-Time Distributed Graph - a live, connected map of what every member is doing, updated within moments of it actually happening, not hours later in an overnight batch job.",
+    keyTermsUsed: [
+      { term: "Event streaming", definition: "Sending each individual action (a login, a play button press) as its own small message the moment it happens, instead of collecting a batch of actions and processing them all later." },
+      { term: "Graph (data structure)", definition: "A way of storing data as nodes (things - a member, a show) and edges (relationships between them - 'watched,' 'played') so you can quickly ask 'what's connected to this?' without slow, expensive joins across tables." },
+      { term: "Stream processing", definition: "Continuously transforming data as it flows past, instead of waiting for all of it to arrive first - the difference between reading a book as pages get delivered one at a time versus waiting for the whole book to show up." },
+    ],
+    pipeline: [
+      { label: "Member action", detail: "A login, a play press, an episode finishing - every action in the app becomes a raw event the instant it happens." },
+      { label: "Kafka", detail: "Ingests the raw event stream reliably and in order, encoded compactly with Avro against a shared schema registry.", stat: "~1M msg/sec per topic" },
+      { label: "Flink", detail: "One job per Kafka topic filters, enriches, deduplicates, and transforms raw events into graph nodes and edges." },
+      { label: "Data Mesh", detail: "Receives the finished graph primitives from Flink and persists them into the storage layer other services query.", stat: "5M+ records/sec at peak" },
+      { label: "Real-Time Graph", detail: "A live, connected picture of member activity - queryable moments after the action actually happened." },
+    ],
+    sections: [
+      {
+        heading: "The problem: microservices scattered the data across the company",
+        body: [
+          "Netflix runs on a microservices architecture - hundreds of small, independent services, each owned by its own team, each with its own database. That's genuinely useful for building and scaling software: teams can ship independently, and each service can pick the database that actually fits its job.",
+          "But it creates a side effect nobody wanted: a member's activity ends up scattered across dozens of separate, siloed databases that were never designed to talk to each other. Figuring out that a phone login, a TV viewing session, and a tablet game session all belonged to the same continuous story meant manually stitching data together from a data warehouse and a pile of unrelated databases - slow, error-prone, and not remotely close to real time.",
+        ],
+      },
+      {
+        heading: "Why a graph, specifically, instead of just more tables",
+        body: [
+          "Netflix's data team could have tried to solve this by building bigger, more connected tables. They chose a graph model instead, for three concrete reasons worth understanding on their own.",
+          "First, relationship queries are what a graph is actually built for - hopping from 'this member' to 'shows they watched' to 'games related to those shows' is a fast traversal in a graph, where the same question in a table-based system usually means several expensive joins.",
+          "Second, graphs tolerate change well. As Netflix added new kinds of member activity (ad interactions, live events, games), a graph can absorb new node and edge types without the kind of schema rework a rigid table structure would need.",
+          "Third, a lot of what Netflix's data scientists actually want to find - hidden relationships, repeating patterns, unusual clusters of behavior - is a much more natural fit for graph traversal than for point lookups scattered across separate databases.",
+        ],
+      },
+      {
+        heading: "Kafka: the backbone that carries every event",
+        body: [
+          "Every action a member takes in the app - logging in, pressing play, finishing an episode - gets published as an event to Apache Kafka, a system built specifically for durable, high-throughput event streaming. Kafka's job here is simple to state and hard to do well at this scale: take an enormous number of small messages arriving continuously, and make them reliably available for other systems to read, in order, without losing any.",
+          "To put the scale in perspective: Netflix's team describes individual Kafka topics generating up to roughly a million messages a second. Each event is encoded in a compact binary format called Avro, with the exact shape of each event type tracked centrally in a schema registry, so every service reading the data knows exactly what fields to expect.",
+        ],
+      },
+      {
+        heading: "Flink: turning a flood of raw events into graph pieces",
+        body: [
+          "Kafka's job is delivering the raw events reliably. Turning those raw events into actual graph nodes and edges is a separate job, handled by Apache Flink - a stream processing framework built for exactly this kind of continuous, low-latency transformation.",
+          "The pipeline, in plain terms: a Flink job reads a stream of raw events (say, 'member started watching an episode'), filters out noise, enriches the event with extra context it needs, and transforms it into graph primitives - a node representing the member, a node representing the show, and an edge connecting them representing the 'watched' relationship. Along the way, it also deduplicates near-identical updates that arrive in a short window, so the system isn't wastefully re-writing the same relationship five times because of five closely-spaced events.",
+          "Once that transformation is done, the resulting nodes and edges get published downstream to a system Netflix calls Data Mesh, which handles actually persisting them into the storage layer other services can query. Netflix's own numbers describe this pipeline writing more than 5 million node-and-edge records per second at peak.",
+        ],
+      },
+      {
+        heading: "The lesson hiding in a scaling mistake",
+        body: [
+          "This is the most instructive part of the whole story for anyone learning system design, because Netflix's team openly describes trying the simpler approach first, and it not working.",
+          "Their first attempt used one single Flink job to consume every Kafka source topic. It sounded reasonable - one job, one thing to manage - but different topics have wildly different volumes and traffic patterns throughout the day. Tuning one shared job to handle all of them at once turned into a losing battle over CPU, memory, and parallelism settings that never quite fit every topic simultaneously.",
+          "Their fix was to flip the design: one Flink job per Kafka topic, a strict 1:1 mapping, instead of one job trying to do everything. That meant more individual jobs to build, deploy, and monitor - genuinely more operational overhead. But each individual job became dramatically simpler to reason about and tune, because it only had to handle the traffic shape of exactly one topic. This is a specific, real example of a very general lesson: sometimes fewer moving parts is not actually simpler if the one big part now has to handle wildly different situations at once - splitting it apart can trade a little extra operational surface area for a lot less complexity per piece.",
+        ],
+      },
+    ],
+    takeaway:
+      "The real-time graph isn't one clever trick - it's Kafka reliably carrying an enormous stream of raw events, Flink jobs continuously turning those events into graph pieces, and a hard-won decision to keep each processing job scoped to one data source instead of one job trying to handle everything. The most transferable lesson is the scaling mistake itself: a single shared component handling very different workloads is often a sign to split, not unify.",
+    sourceTitle:
+      "How and Why Netflix Built a Real-Time Distributed Graph: Part 1 - Ingesting and Processing Data Streams at Internet Scale",
+    sourceAuthors: ["Adrian Taruc", "James Dalton"],
+    sourceUrl:
+      "https://netflixtechblog.com/how-and-why-netflix-built-a-real-time-distributed-graph-part-1-ingesting-and-processing-data-80113e124acc",
+    sourceNote:
+      "This page explains, in plain language, the architecture described in Netflix's own engineering blog post credited to Adrian Taruc and James Dalton. All credit for the original work, research, and writing belongs to them and Netflix - this is our own explanation of the same publicly documented architecture, not a copy of their text.",
+  },
+  {
+    slug: "querying-the-graph",
+    companySlug: "netflix",
+    title: "How Netflix queries a billion-edge graph in under 100 milliseconds",
+    tagline: "Turning a constantly growing graph into answers that feel instant, no matter how the question is shaped",
+    seoKeywords: [
+      "netflix graph query engine",
+      "netflix grpc architecture",
+      "netflix serving layer design",
+      "netflix breadth-first traversal",
+      "netflix low latency architecture",
+      "netflix distributed cache evcache",
+      "netflix async architecture",
+      "how netflix serves real-time queries",
+      "netflix concurrency limiting",
+    ],
+    intro:
+      "Building the graph is only half the problem. Netflix's Real-Time Distributed Graph (RDG) ingests and stores billions of nodes and edges - but none of that matters if nobody can actually ask it a question and get an answer back fast. This is where Netflix's data engineering team faced a different kind of challenge: some questions touch a handful of records, others fan out across hundreds of relationships, and some need to chain several hops deep. All of them needed to come back in well under a second, most in well under 100 milliseconds, on a graph with roughly 8 billion nodes and 150 billion edges.",
+    keyTermsUsed: [
+      { term: "Fan-out", definition: "How many results a single step of a query can spread into - asking for one account's devices might fan out into hundreds of device records at once." },
+      { term: "Breadth-first traversal", definition: "Exploring a graph one full layer at a time (all profiles, then all their content) instead of following one path all the way to the end before trying the next." },
+      { term: "P50 / P99 latency", definition: "P50 is the typical response time (half of requests are faster). P99 is the response time for the slowest 1% of requests - the number that tells you how bad the worst case gets." },
+    ],
+    pipeline: [
+      { label: "gRPC request", detail: "Client sends a traversal request; the engine parses it into a concrete execution plan of hops, limits, and filters." },
+      { label: "Storage lookup", detail: "Adjacency lists are read directly per node - small hops return in milliseconds, large ones stream in batches." },
+      { label: "Breadth-first levels", detail: "Each level of the traversal runs as one round of parallel calls across dedicated thread pools, not sequential chains.", stat: "16-24 threads total" },
+      { label: "Filter + enrich", detail: "Results are filtered as they stream in (time windows, edge limits) and optionally enriched from external services." },
+      { label: "Response", detail: "Assembled and returned - most queries land well under 100ms even several hops deep.", stat: "P99 15-150ms" },
+    ],
+    sections: [
+      {
+        heading: "The problem: 'querying the graph' means very different things depending on who's asking",
+        body: [
+          "Netflix's team found that graph queries pull the system in two very different directions. A 'shallow and wide' query - something like 'which devices has this account streamed from in the last 30 days' - is only one hop away from the starting point, but that one hop can fan out into hundreds of edges to fetch, filter, and aggregate.",
+          "A 'deep and narrow' query is the opposite problem: something like 'across every profile on this account, show me the full Stranger Things viewing history' has to walk multiple hops in sequence - first find the profiles, then find what each profile watched. If each hop takes even 10 milliseconds of network time, four sequential hops alone burn 40ms before any real work happens.",
+          "Supporting both kinds of queries, at tens of thousands of queries per second, on a graph that never stops growing, is what shaped every design decision that follows.",
+        ],
+      },
+      {
+        heading: "Why breadth-first beats depth-first when every hop is a network call",
+        body: [
+          "The intuitive way to walk a graph is depth-first: pick a path, follow it all the way, backtrack, try the next one. Netflix's team explicitly avoided this, because in a distributed system, each hop means a network round trip, and depth-first would trace one profile's entire history before even starting on the next profile - wasting the chance to batch those lookups together.",
+          "Instead, the engine works breadth-first: fetch all profiles for an account in one round trip, then fetch the relevant edges for all of those profiles together in a second round trip, and so on. A query that chains two hops becomes two rounds of parallel work instead of one long sequential chain - which is a big part of how a multi-hop query stays under 100ms.",
+        ],
+      },
+      {
+        heading: "Why the whole engine is built async-first, not thread-per-request",
+        body: [
+          "Most of the delay in answering a graph query isn't computation - it's waiting: waiting on the storage layer, waiting on a cache, waiting on an enrichment service. A traditional design would assign one thread per in-flight query, and with thousands of concurrent queries, most of those threads would just sit idle waiting for a network response to come back.",
+          "Netflix built the entire query engine around asynchronous composition instead. A small pool of 16 to 24 threads handles thousands of concurrent requests, because no single thread ever blocks waiting on I/O - while one storage call is in flight, that thread picks up other work and comes back for the result later. The team describes this as the foundational decision everything else in the system rests on.",
+        ],
+      },
+      {
+        heading: "Parallel work, kept from turning into chaos",
+        body: [
+          "Breadth-first traversal only helps if the work within each level actually runs in parallel. Netflix's team compares their design to a professional kitchen: separate stations for separate kinds of work - one pool of workers for fetching nodes, another for reading adjacency lists, another for enrichment calls - so a slowdown in one station doesn't stall the others.",
+          "On top of that, the system uses adaptive concurrency limiting: when things are healthy, it slowly raises how much work it allows in flight at once; when errors or timeouts start climbing, it backs off by a much larger step. That combination is what lets the engine run many lookups in parallel without accidentally overwhelming the storage layer underneath it.",
+        ],
+      },
+      {
+        heading: "Filtering as close to the data as possible",
+        body: [
+          "A profile might have hundreds of viewing events on record, but a query usually only cares about a slice of that - the last 30 days, say. Rather than pulling everything back and trimming it afterward, Netflix streams adjacency data in small batches and applies filters as each batch arrives, stopping as soon as it has enough to satisfy the query.",
+          "The team also built a layered system of defaults and overrides - global defaults, per-query overrides, and per-edge-type limits - so different teams can ask for different lookback windows or edge limits without needing a code change every time. They describe this as having eliminated an entire category of one-off feature requests.",
+        ],
+      },
+      {
+        heading: "Caching what's actually worth remembering",
+        body: [
+          "Not everything in the graph changes at the same speed. An account's plan type or a show's metadata barely changes; who-watched-what-and-when changes constantly. Netflix caches the slow-changing, frequently-accessed data - accounts, profiles, content - in a distributed cache (EVCache), which brought hit rates up to 70-80% on those lookups.",
+          "The subtler decision was knowing what not to cache: a node that's about to fall outside the graph's retention window isn't worth caching even briefly, so the system weighs a node's last-activity time against the retention period before deciding whether caching it is worthwhile at all.",
+        ],
+      },
+    ],
+    takeaway:
+      "The serving layer's speed doesn't come from one trick - it's breadth-first traversal turning sequential hops into parallel rounds, an async-first design that lets a handful of threads carry thousands of concurrent queries, deliberately bounded parallelism instead of unbounded concurrency, and caching that's selective rather than aggressive. The transferable lesson: filter as early as possible, parallelize on purpose with real limits, and only cache what's actually worth remembering.",
+    sourceTitle:
+      "How and Why Netflix Built a Real-Time Distributed Graph: Part 3 - Querying the graph with gRPC execution API",
+    sourceAuthors: ["Nilesh Mishra", "Ajit Koti"],
+    sourceUrl:
+      "https://netflixtechblog.com/how-and-why-netflix-built-a-real-time-distributed-graph-part-3-querying-the-graph-with-grpc-0f3468349607",
+    sourceNote:
+      "This page explains, in plain language, the architecture described in Netflix's own engineering blog post credited to Nilesh Mishra and Ajit Koti. All credit for the original work, research, and writing belongs to them and Netflix - this is our own explanation of the same publicly documented architecture, not a copy of their text.",
+  },
+  {
+    slug: "responsible-ai-governance",
+    companySlug: "uber",
+    title: "How Uber governs AI models it doesn't want turning into a black box",
+    tagline: "A model catalog, built-in explainability, and governance checks that start before a model ever ships",
+    seoKeywords: [
+      "uber responsible ai",
+      "uber ai governance",
+      "uber michelangelo platform",
+      "uber model catalog",
+      "uber machine learning platform",
+      "how uber governs machine learning models",
+      "uber feature attribution shap",
+      "ai governance system design",
+      "uber ml governance framework",
+    ],
+    intro:
+      "Uber doesn't just use one or two machine learning models - it runs AI across dozens of teams and platforms, from ETA predictions to fraud detection to newer generative AI features. That spread creates a governance problem most companies eventually run into: if every team builds and ships models independently, nobody at the company can answer a simple question like 'what models do we actually have running, and how do they make decisions?' Uber's engineering org built a company-wide Responsible AI program to answer exactly that, without slowing every team down with a pile of new rules.",
+    keyTermsUsed: [
+      { term: "Model catalog", definition: "A searchable, centralized record of every model a company has running - what it does, who owns it, how it was trained - so nobody has to ask around to find out what a model does or who's responsible for it." },
+      { term: "Feature attribution", definition: "A technique for figuring out which inputs (features) most influenced a specific model's output - answering 'why did the model predict this' instead of treating the model as an unexplainable black box." },
+      { term: "Shift-left", definition: "Moving a check (governance, testing, security) earlier in a process - to the planning stage rather than right before release - so problems get caught before real engineering effort has already been spent." },
+    ],
+    pipeline: [
+      { label: "PRD / ERD review", detail: "Governance requirements enter at the planning stage, folded into the document review process engineers already use." },
+      { label: "Model Card", detail: "Engineers register the model in the Model Catalog - a standardized card with description, metrics, and deployment details." },
+      { label: "Feature attribution", detail: "PFI, SHAP, or integrated gradients run automatically after training and link back to the Model Card." },
+      { label: "Deployment gate", detail: "An in-product prompt requires a completed Model Card before the model can actually ship." },
+      { label: "Model Catalog", detail: "The model lives on as one searchable, auditable entry alongside every other model at the company." },
+    ],
+    sections: [
+      {
+        heading: "The problem: AI governance that doesn't scale with rules alone",
+        body: [
+          "Uber's own framing of this problem is a useful lesson on its own: as AI use grows, the instinct is to add more rules for every new system that shows up. Uber's team explicitly rejected that path. More rules per system means more friction for engineers and a governance process that gets slower exactly as the company needs it to get faster.",
+          "Instead, they aimed for durable systems and processes flexible enough to absorb new use cases - including the wave of generative AI work that showed up alongside their existing ML platform, Michelangelo - without needing a new governance policy written for every new kind of model.",
+        ],
+      },
+      {
+        heading: "A single source of truth: the Model Catalog",
+        body: [
+          "The technical foundation of the whole program is deceptively simple: a centralized, searchable inventory of every AI system at Uber, called the Model Catalog. Each entry is built around a Model Card - a standardized document giving a shared view of what a model does, its performance and accuracy metrics, and its deployment details, readable by engineers, business owners, and governance staff alike without each group needing separate documentation.",
+          "The catalog is wired directly into the ML development workflow itself, with several fields auto-populated from system-generated signals rather than manually filled in by engineers. That detail matters: a governance system that depends on engineers remembering to document things by hand tends to decay over time as teams get busy. Automating the parts that can be automated is what keeps the catalog accurate instead of becoming stale paperwork.",
+        ],
+      },
+      {
+        heading: "Making models explain themselves",
+        body: [
+          "A model catalog tells you a model exists. It doesn't tell you why the model made a specific decision - which is its own governance problem, especially for anything higher-impact, like a prediction that affects pricing or fraud flags. Uber's team built feature attribution directly into Michelangelo, their internal ML platform, so that explainability isn't a separate manual step teams have to remember to do.",
+          "They use three different techniques depending on what kind of explanation is needed. Permutation Feature Importance (PFI) gives a global view of a model by measuring how much its accuracy drops when one feature's values are randomly shuffled - the more performance degrades, the more the model actually relies on that feature. For explaining one specific prediction, they use SHAP-based methods (TreeSHAP for tree-based models specifically), which quantify how much each individual feature contributed to that one output - the difference between 'what does this model generally care about' and 'why did it make this particular call.' For deep learning models, where there's no clean tree structure to walk, they use integrated gradients, which trace a prediction back to its inputs by accumulating gradient signal along a path from a neutral baseline input to the actual input.",
+          "All of this attribution work runs automatically after training and links straight back into the Model Card, so the explanation isn't a separate artifact someone has to go dig up - it's attached to the same record everyone already looks at.",
+        ],
+      },
+      {
+        heading: "Governance that starts before a model is built, not after",
+        body: [
+          "The part of this program most worth remembering is where the governance check actually happens. Uber's team describes a 'shift-left' approach: governance requirements get folded into the same internal document review process engineers already use to write PRDs and ERDs (product and engineering review documents) at the planning stage, rather than being bolted on right before a model ships.",
+          "That timing choice is deliberate. Catching a governance issue during planning costs a conversation; catching the same issue right before release costs a delayed launch and rework. On top of the planning-stage check, they added an in-product enforcement reminder - engineers are prompted to complete a Model Card before deployment - creating an auditable gate that ties governance directly into the actual delivery pipeline instead of living in a separate policy document nobody reads.",
+        ],
+      },
+      {
+        heading: "Bringing existing models into the system, not just new ones",
+        body: [
+          "New governance rules are the easy part - the harder part is retrofitting them onto every model that already exists in production. Uber's team started this with manual onboarding and beta-testing alongside a few partner teams, then used that feedback to revise their Model Card requirements into a second version before rolling out a company-wide push to bring existing models up to standard.",
+          "To make that scale, they moved away from static, one-size-fits-all rules toward a more adaptive classification system, paired with human review for cases that need real judgment rather than a checkbox - distinguishing a model that meaningfully affects a decision from one with incidental, low-impact usage. Their own framing captures the idea well: adoption isn't a one-time rollout, it's an ongoing process of keeping people, platforms, and practices aligned as the company's AI footprint keeps growing.",
+        ],
+      },
+    ],
+    takeaway:
+      "Uber's Responsible AI program isn't one clever tool - it's a model catalog that stays accurate because it's automated rather than manually maintained, explainability that's built into the training pipeline instead of bolted on afterward, and governance checks moved as early as the planning stage instead of the release stage. The transferable lesson: a governance system that adds friction only at the end gets bypassed under deadline pressure; one that's embedded in the workflow from the start doesn't.",
+    sourceTitle: "Under the Hood: Scaling Responsible AI at Uber",
+    sourceAuthors: ["Melissa Barr", "Melda Salhab"],
+    sourceUrl: "https://www.uber.com/blog/scaling-responsible-ai-at-uber/",
+    sourceNote:
+      "This page explains, in plain language, the architecture and program described in Uber's own engineering blog post credited to Melissa Barr and Melda Salhab. All credit for the original work, research, and writing belongs to them and Uber - this is our own explanation of the same publicly documented program, not a copy of their text.",
+  },
+  {
+    slug: "grpc-search-opensearch",
+    companySlug: "uber",
+    title: "How Uber cut search latency in half by adding gRPC to OpenSearch",
+    tagline: "Why translating between REST/JSON and Protobuf was quietly costing Uber's search platform real performance",
+    seoKeywords: [
+      "uber grpc opensearch",
+      "uber search architecture",
+      "uber grpc vs rest performance",
+      "opensearch grpc transport",
+      "uber protobuf search",
+      "how uber built search gateway",
+      "grpc vs rest json latency",
+      "uber m3 metrics indexing",
+      "uber vector search performance",
+    ],
+    intro:
+      "Search sits underneath a surprising amount of what Uber does - matching riders with drivers, catching fraud, powering Uber Eats recommendations. Uber standardized on OpenSearch for this, but ran into a quiet mismatch: nearly all of Uber's internal services already talk to each other using gRPC and Protobuf, while OpenSearch only spoke REST and JSON. That gap meant every search or ingest request had to pass through a translation layer - and at Uber's scale, that translation layer wasn't free.",
+    keyTermsUsed: [
+      { term: "gRPC", definition: "A framework for services to call each other directly using compact binary messages instead of JSON text, built on strongly-typed contracts (Protobuf) rather than loosely-structured REST payloads." },
+      { term: "Protobuf", definition: "Protocol Buffers - a binary format for structuring data, more compact and faster to parse than JSON, but requiring both sides to agree on a strict schema ahead of time." },
+      { term: "p50 / p95 / p99 latency", definition: "Percentile latency: p50 is the typical (median) response time, p95 and p99 describe how slow the worst 5% and worst 1% of requests get - the numbers that reveal how bad a system's tail behavior really is." },
+    ],
+    pipeline: [
+      { label: "Client (Protobuf)", detail: "Uber's internal services send requests already shaped as compact, strongly-typed Protobuf messages." },
+      { label: "Search Gateway", detail: "Adds security, observability, and rate-limiting, then passes the request straight through - no translation step left." },
+      { label: "OpenSearch gRPC", detail: "A native gRPC transport added directly to OpenSearch core, running alongside the original REST transport." },
+      { label: "Search / Bulk", detail: "The request is served as a search query or ingest write, using the same underlying node logic REST used to share." },
+      { label: "Response", detail: "Returned in Protobuf directly - no JSON round-trip in either direction.", stat: "Up to 60% faster p99" },
+    ],
+    sections: [
+      {
+        heading: "The problem: two parts of the same company speaking different languages",
+        body: [
+          "Most of Uber's internal infrastructure already ran on gRPC and Protobuf - strongly typed contracts, efficient binary serialization, and transports built for streaming. OpenSearch, which Uber had standardized on for search and retrieval, only exposed REST and JSON APIs.",
+          "That mismatch meant every request between Uber's gRPC-native services and OpenSearch needed a translation layer converting Protobuf to JSON on the way in, and JSON back to Protobuf on the way out. Translation layers are the kind of thing that look like a minor implementation detail until you measure what they actually cost - added latency, added complexity, and an additional piece of infrastructure that can break.",
+        ],
+      },
+      {
+        heading: "The fix: teach OpenSearch to speak gRPC natively, without breaking REST",
+        body: [
+          "Uber's search team could have kept patching the translation layer, or maintained a long-term fork of OpenSearch. Instead, they built native gRPC support directly into OpenSearch itself, designed to run alongside the existing REST transport rather than replace it - both protocols run on different ports, sharing the same underlying node-to-node logic, so only the outermost client-server layer actually differs.",
+          "That design choice mattered for adoption: teams already using REST didn't have to migrate all at once. Search and Bulk (ingestion) were prioritized first, since those were the most latency-sensitive APIs both for Uber and for OpenSearch users generally.",
+        ],
+      },
+      {
+        heading: "The hard part: keeping REST and Protobuf in sync automatically",
+        body: [
+          "Adding a second protocol only works long-term if both protocols stay in sync as the API evolves - otherwise gRPC quietly drifts out of date every time someone changes the REST API. Uber's team built an automated conversion pipeline with three stages: preprocessing, core conversion, and postprocessing.",
+          "Preprocessing resolves the fact that REST and Protobuf don't think about APIs the same way - REST leans on paths, query parameters, and status codes, while Protobuf needs everything spelled out as explicit, strongly typed messages. Core conversion turns the cleaned-up API spec into actual Protobuf artifacts (extending an existing open-source tool, OpenAPI Generator, since it didn't already support this). Postprocessing is the safety net: Protobuf can't tolerate something as small as a field being renumbered without breaking every existing client, so this stage runs compatibility checks against previous versions before anything ships.",
+        ],
+      },
+      {
+        heading: "Where it paid off: the Search Gateway",
+        body: [
+          "One concrete place this showed up was Uber's Search Gateway, the service that proxies every customer search and ingest request before it reaches an OpenSearch cluster, adding security, observability, and rate-limiting along the way. Before native gRPC support existed, the gateway ran an in-house adaptor that transpiled every Protobuf request into JSON, sent it to OpenSearch over REST, then transpiled the JSON response back into Protobuf - extra work on every single request.",
+          "Once OpenSearch could speak gRPC natively, that adaptor became unnecessary. The gateway could pass a client's Protobuf request straight through to OpenSearch's own gRPC endpoint, removing an entire translation hop instead of just optimizing it.",
+        ],
+      },
+      {
+        heading: "The payoff, in Uber's own numbers",
+        body: [
+          "The performance difference wasn't marginal. On M3, Uber's in-house metrics system, switching to gRPC cut p99 write latency by roughly 60% (from 34.1ms down to 13.6ms) and p50 latency by about 34%. The M3 Indexer's maximum indexing delay - a metric that matters most during failovers, when the system is already under stress - dropped by 20-35% at higher request rates.",
+          "The biggest gains showed up in vector search, which makes sense once you know why: a large vector is expensive to represent as JSON text, but Protobuf can pack a repeated float array far more compactly. Uber Eats' delivery shopping-list recommendations saw p50 search latency drop about 53% (83ms to 38ms) and p95 drop about 43% (114ms to 64ms) after the switch. Batch ingestion jobs that indexed data using Apache Spark saw job runtimes drop 20-35% simply by switching their Bulk calls from REST to gRPC.",
+        ],
+      },
+      {
+        heading: "The lesson: API representation isn't a surface-level choice",
+        body: [
+          "Uber's team states their own takeaway plainly: how a system represents its API - REST versus gRPC, JSON versus Protobuf - isn't just a stylistic preference between two ways of writing the same thing. At scale, it directly shapes performance ceilings, how a system can evolve, and how fast teams can move on top of it.",
+          "It's also worth noting what they didn't do: rip out REST and force every team onto gRPC overnight. Keeping both transports first-class let teams migrate incrementally, on their own schedule, rather than treating a protocol change as a company-wide flag day.",
+        ],
+      },
+    ],
+    takeaway:
+      "The real gain here didn't come from gRPC being faster in the abstract - it came from Uber noticing that a translation layer between two protocols was an actual measured cost, then removing it at the source instead of continuing to optimize around it. The transferable lesson: when two parts of a system speak different formats, the adaptor connecting them isn't free, and it's worth periodically asking whether it should exist at all.",
+    sourceTitle: "Accelerating Search and Ingestion with High-Performance gRPC in OpenSearch",
+    sourceAuthors: ["Karen Xu", "Xi Lu", "Shuyi Zhang"],
+    sourceUrl: "https://www.uber.com/blog/accelerating-search-and-ingestion-with-grpc-in-opensearch/",
+    sourceNote:
+      "This page explains, in plain language, the architecture described in Uber's own engineering blog post credited to Karen Xu, Xi Lu, and Shuyi Zhang. All credit for the original work, research, and writing belongs to them and Uber - this is our own explanation of the same publicly documented architecture, not a copy of their text.",
+  },
+];
+
+export function getDeepDivesForCompany(companySlug: string) {
+  return architectureDeepDives.filter((d) => d.companySlug === companySlug);
+}
+
+export function getDeepDive(companySlug: string, deepDiveSlug: string) {
+  return architectureDeepDives.find(
+    (d) => d.companySlug === companySlug && d.slug === deepDiveSlug,
+  );
+}

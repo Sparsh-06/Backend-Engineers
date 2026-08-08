@@ -1,0 +1,49 @@
+---
+title: "Idempotency: why it matters more than you think"
+description: "What it means for an action to be safe to repeat, and why every retry, payment, and webhook depends on it."
+keywords: ["what is idempotency", "idempotent api explained", "why is idempotency important", "idempotency key explained", "idempotent vs non-idempotent", "idempotency", "idempotency key", "retries", "duplicate requests", "at-least-once delivery", "safe methods", "payment retries", "webhook reliability", "PUT vs POST idempotency", "distributed systems reliability"]
+phase: "Phase 0"
+group: "backend-fundamentals"
+---
+
+## The elevator button test
+
+Press an elevator call button once. Press it five more times because you're impatient. The elevator still only comes once - pressing it again after the first press changes nothing. That's idempotency: doing the same operation multiple times produces the same result as doing it once.
+
+Compare that to ordering a coffee. Say "one coffee" five times to five different baristas and you get five coffees. Not idempotent - every repetition adds a new effect.
+
+This distinction sounds almost too simple to matter, until you remember that networks fail constantly, in ways that make "did that actually happen?" a genuinely hard question to answer from the client's side.
+
+## Why this is a real engineering problem, not a theoretical one
+
+Send a payment request. The server processes it successfully and charges the card - but the response gets lost on the way back, maybe the connection drops, maybe a proxy times out. From the client's point of view, nothing came back. Did it fail? Did it succeed? There's no way to tell from where you're standing.
+
+The honest answer is: you can't know, so the only safe thing to do is retry. And now the real question is what happens if that retry hits a server that already processed the first attempt. If the operation isn't idempotent, the user gets charged twice for something that looked, from their end, like it might have just failed once.
+
+<Callout>
+This is not a rare edge case. In any distributed system, a request can fail after the work is done but before the confirmation gets back - this is usually called "at-least-once delivery," and it means duplicate attempts are not a bug in your network, they're a fact of how networks behave. Idempotency is how you make that fact survivable.
+</Callout>
+
+## Which HTTP methods are idempotent by convention
+
+- `GET`, `PUT`, `DELETE` are supposed to be idempotent. Calling `DELETE /orders/42` five times should leave the system in the same state as calling it once - the order is gone, and it stays gone.
+- `POST` is not idempotent by convention, because it usually means "create a new thing." Five identical `POST` requests to `/orders` conventionally create five orders.
+
+This is a *convention*, not something HTTP enforces - nothing stops a badly written `DELETE` handler from doing something different every time it's called. But clients, caches, and retry logic all assume the convention holds, which is exactly why breaking it causes hard-to-trace bugs elsewhere in the system.
+
+## How idempotency keys actually work
+
+For operations that are inherently creation-like - placing an order, charging a card - you can't rely on the HTTP method alone, so a common pattern is the client generating a unique idempotency key and attaching it to the request:
+
+```
+POST /payments
+Idempotency-Key: 7e5f3c2a-9b41-4d8e-a1f0-3c6d9e2b7a44
+
+{ "amount": 4999, "currency": "usd" }
+```
+
+The server stores that key alongside the result of the first successful request. If the exact same key shows up again - because the client retried after a timeout - the server returns the original result instead of processing the payment a second time. The client can retry as aggressively as it wants; the operation itself only ever actually happens once.
+
+## Where this shows up constantly
+
+Payment APIs (Stripe's idempotency keys are the textbook example), webhook consumers (a webhook provider will redeliver an event if your endpoint doesn't acknowledge it fast enough, so your handler needs to tolerate receiving the same event twice), and message queue consumers (a message can be redelivered after a consumer crashes mid-processing, before it acknowledges completion) all lean on this same idea. None of them can guarantee exactly-once delivery over an unreliable network - so instead, they make the operation itself safe to receive more than once.

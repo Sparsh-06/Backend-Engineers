@@ -1,0 +1,41 @@
+---
+title: "Latency vs throughput: the tradeoff nobody names"
+description: "Two different numbers that both mean \"fast,\" and why optimizing one can quietly make the other worse."
+keywords: ["latency vs throughput explained", "what is latency", "what is throughput", "latency vs throughput difference", "how to improve api performance", "latency", "throughput", "response time", "requests per second", "p99 latency", "performance tradeoffs", "queueing theory basics", "system performance", "api performance", "scalability tradeoffs"]
+phase: "Phase 0"
+group: "backend-fundamentals"
+---
+
+## One checkout lane versus ten
+
+A grocery store with one checkout lane, staffed by someone extremely fast, might get each individual customer through in 30 seconds. That's low **latency** - the time for one specific thing to complete.
+
+The same store with ten checkout lanes, each staffed by someone average, might process 200 customers in the time the fast single lane processes 40. That's high **throughput** - the total amount of work completed over time.
+
+Notice these are answering different questions. Latency asks "how long did this one thing take." Throughput asks "how much total work got done." A system can be excellent at one and mediocre at the other, and conflating them is one of the most common mistakes in talking about performance.
+
+## Why you can't always improve both at once
+
+Add more checkout lanes and throughput goes up - more customers served per hour, total. But if each new cashier is a little slower than the best one, average latency per customer can actually go *up* even as total throughput improves. This isn't a contradiction; it's the actual tradeoff.
+
+The same thing happens in backend systems constantly. Batching requests together - waiting to accumulate ten database writes before sending them as one transaction - improves throughput (fewer round trips, more total operations per second) but hurts latency for the first request in the batch, which now has to wait for the other nine to show up before anything happens. Caching helps both, when it works, but adds latency on a cache miss while paying off in throughput on every subsequent hit.
+
+<Callout>
+"Make it faster" is not a specific enough goal to act on. Faster for one request, or faster in total? The optimization that helps one can actively hurt the other - which is exactly why real performance work starts by naming which of the two actually matters for the problem at hand.
+</Callout>
+
+## Why averages lie about latency
+
+A system with an average response time of 50ms sounds fast. But averages hide the shape of the distribution - if 99% of requests take 10ms and 1% take 4 seconds, the average still looks reasonable, while 1 in 100 real users is having a genuinely bad experience.
+
+This is why performance work in practice talks about percentiles instead of averages - p50 (the median), p95, p99. "p99 latency is 800ms" means 99% of requests finished faster than that, and the slowest 1% didn't - a number that actually tells you something an average conveniently hides. At real scale, that unlucky 1% is not a rounding error; it's thousands of actual users.
+
+## Where the tradeoff shows up in system design
+
+Load balancing algorithms have to choose: send each request to whichever server responds fastest right now (optimizing latency) or spread load evenly to maximize total capacity (optimizing throughput) - and under real traffic, those aren't always the same server.
+
+Connection pooling is the same tension in miniature: too few connections and requests queue up waiting for one to free up, hurting latency; too many and you overwhelm the database, hurting throughput for everyone. There's rarely a setting that maximizes both at once - usually just a point where the two are balanced well enough for what the system actually needs.
+
+## The question worth asking instead of "is it fast"
+
+Is this a system where one person is waiting right now for one answer - checking out a shopping cart, loading a page - where latency is what actually matters? Or is this a system processing a queue of work where nobody's watching a specific item complete - batch exports, log processing - where throughput is the real measure? Naming which one you're optimizing for, before touching any code, is what turns "make it faster" into an actual engineering decision instead of a guess.
