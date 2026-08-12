@@ -1,0 +1,35 @@
+name: Notify Search Engines
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: Resubmit sitemap to Google Search Console
+        run: |
+          ACCESS_TOKEN=$(gcloud auth print-access-token)
+          curl -X PUT \
+            -H "Authorization: Bearer $ACCESS_TOKEN" \
+            "https://searchconsole.googleapis.com/webmasters/v3/sites/$(python3 -c "import urllib.parse; print(urllib.parse.quote('${{ secrets.SITE_URL }}', safe=''))")/sitemaps/$(python3 -c "import urllib.parse; print(urllib.parse.quote('${{ secrets.SITEMAP_URL }}', safe=''))")"
+
+      - name: Ping IndexNow
+        run: |
+          curl -X POST "https://api.indexnow.org/indexnow" \
+          -H "Content-Type: application/json" \
+          -d "{
+                \"host\": \"www.backendengineer.in\",
+                \"key\": \"${{ secrets.INDEXNOW_KEY }}\",
+                \"keyLocation\": \"https://www.backendengineer.in/${{ secrets.INDEXNOW_KEY }}.txt\",
+                \"urlList\": [\"https://www.backendengineer.in/sitemap.xml\"]
+              }"
