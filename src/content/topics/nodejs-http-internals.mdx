@@ -1,0 +1,88 @@
+---
+title: "How Node's HTTP Server Actually Handles a Request"
+description: "What http.createServer really does underneath, how keep-alive connections work, and what a framework like Express adds on top."
+keywords: ["how does http.createServer work", "node js http module internals", "keep-alive connections node js", "express vs raw http node js", "node js request lifecycle", "http.createServer", "libuv http", "keep-alive", "backpressure http response", "TCP socket node js", "http.Server class", "req res streams", "express middleware internals", "node js networking", "socket connection reuse"]
+phase: "Phase 1"
+group: "language-runtimes"
+---
+
+## createServer() is not magic, it's a TCP listener with a parser attached
+
+```js
+const http = require("http");
+
+const server = http.createServer((req, res) => {
+  res.writeHead(200, { "Content-Type": "text/plain" });
+  res.end("hello");
+});
+
+server.listen(3000);
+```
+
+`http.createServer()` returns an `http.Server`, which under the hood is a `net.Server` - a raw TCP listener - with an HTTP parser wired into every socket it accepts. `.listen(3000)` asks libuv to bind that port and start accepting connections, exactly the same libuv machinery covered in the event loop and async I/O topics. Nothing here is HTTP-specific at the socket level; the parsing is what makes it HTTP.
+
+## From accepted socket to your callback
+
+When a TCP connection comes in, libuv hands Node's C++ layer a new socket. From there:
+
+1. The socket is wrapped in a JavaScript `net.Socket`
+2. Raw bytes arriving on that socket get fed into an HTTP parser (`llhttp`, built into Node) as they arrive
+3. The parser reads the request line and headers incrementally, byte by byte, off the wire
+4. Once the headers are fully parsed, Node constructs an `http.IncomingMessage` (this is your `req`) and an `http.ServerResponse` (`res`)
+5. Your callback runs, with `req` and `res` handed to it
+
+Nothing about this waits for the full request body to arrive before your callback fires - only the request line and headers need to be parsed. `req` is itself a readable stream; the body arrives as `data` events (or via `await` on an async iterator) exactly like any other readable stream, which is why a large file upload doesn't need to sit fully in memory before your handler starts.
+
+## Keep-alive: one socket, many requests
+
+HTTP/1.1 connections default to keep-alive - the TCP socket stays open after a response finishes, so the next request from the same client reuses it instead of paying for a new TCP handshake (and TLS handshake, if HTTPS) every time.
+
+```js
+const server = http.createServer((req, res) => {
+  res.end("ok");
+});
+
+server.keepAliveTimeout = 5000; // close idle sockets after 5s of no new request
+server.headersTimeout = 60000;  // max time allowed to receive headers on a socket
+```
+
+`keepAliveTimeout` is the setting that actually matters in production, and it's the source of a specific, well-known bug: if a load balancer or reverse proxy in front of Node has a keep-alive timeout longer than Node's own, Node can close a socket the proxy still thinks is alive, and the next request routed onto it fails with a connection reset. The fix is keeping Node's `keepAliveTimeout` slightly higher than whatever's in front of it, not lower.
+
+## Backpressure applies to res the same way it applies to any writable stream
+
+`res` is a writable stream, so everything from the streams topic applies directly. `res.write(chunk)` returns `false` when the underlying socket's buffer is full - meaning the client (or the network path to it) is consuming data more slowly than your server is producing it.
+
+```js
+const readStream = fs.createReadStream("./large-report.csv");
+readStream.pipe(res); // pipe() respects res's backpressure automatically
+```
+
+```js
+// manual write - backpressure has to be handled explicitly
+function sendChunks(res, chunks, i = 0) {
+  if (i >= chunks.length) return res.end();
+  const ok = res.write(chunks[i]);
+  if (ok) {
+    sendChunks(res, chunks, i + 1);
+  } else {
+    res.once("drain", () => sendChunks(res, chunks, i + 1));
+  }
+}
+```
+
+Ignore the return value of `res.write()` in a loop and you can buffer an unbounded amount of data in memory waiting for a slow client - the same failure mode as ignoring backpressure on any other stream, just triggered by a slow network peer instead of a slow disk.
+
+<Callout>
+A slow client can hold a socket, and whatever memory is queued behind it, open for a long time on a connection that never technically errors - it's just slow. This is one of the reasons `res.write()`'s return value isn't optional to check under real load, and why request timeouts and `maxHeaderSize` limits exist as protection against clients that are slow either by accident or on purpose.
+</Callout>
+
+## What Express actually adds
+
+The raw `http` module gives you exactly one callback per request, a stream to read from, and a stream to write to - no routing, no parsed body, no concept of middleware. Express (and frameworks like it) sits on top of that same `http.createServer()`, adding:
+
+- **Routing** - matching `req.method` and `req.url` against registered paths, instead of every request funneling into one callback and being dispatched by hand
+- **Middleware chaining** - a `next()`-based pipeline so multiple functions can run in sequence per request, each able to short-circuit or pass control forward
+- **Body parsing** - `express.json()` reads and buffers the `req` stream and gives you a parsed `req.body`, work you'd otherwise write yourself against the raw stream
+- **Response helpers** - `res.json()`, `res.status()`, `res.send()` wrap the same underlying `res.writeHead()`/`res.end()` calls in something more convenient
+
+None of this replaces the `http` module - `req` and `res` inside an Express handler are still, at their core, the same `IncomingMessage` and `ServerResponse` objects `http.createServer` would have handed you directly, just with extra properties and methods attached. Express is a layer of ergonomics over the same request lifecycle, not a different mechanism underneath it.

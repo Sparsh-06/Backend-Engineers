@@ -86,6 +86,7 @@ export const metadata: Metadata = {
   icons: {
     icon: "/favicon.png?v=2",
   },
+  manifest: "/manifest.webmanifest",
   authors: [{ name: "Backend Engineer", url: "https://www.backendengineer.in" }],
   creator: "Sparsh Sharma",
   publisher: "Sparsh Sharma",

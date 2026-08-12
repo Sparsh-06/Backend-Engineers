@@ -35,21 +35,50 @@ This is the part that trips up most developers.
 
 **Macrotasks** (also called timers or I/O callbacks) go into one of the phases above and are processed in their turn.
 
-```js
-console.log("1 - synchronous");
+The classic way to see this is a four-line script whose output order surprises
+almost everyone the first time. Step through it in the order Node actually
+executes it, not the order it's written:
 
+<CodeWalkthrough
+  title="Execution order, step by step"
+  language="js"
+  code={`console.log("1 - synchronous");
 setTimeout(() => console.log("2 - macrotask (timer)"), 0);
-
 Promise.resolve().then(() => console.log("3 - microtask"));
-
-console.log("4 - synchronous");
-
-// Output:
-// 1 - synchronous
-// 4 - synchronous
-// 3 - microtask
-// 2 - macrotask (timer)
-```
+console.log("4 - synchronous");`}
+  steps={[
+    {
+      lines: "1",
+      title: "Synchronous code runs first",
+      detail: "Nothing clever here yet. This line is on the call stack right now, so it prints immediately. Output so far: 1.",
+    },
+    {
+      lines: "2",
+      title: "setTimeout registers a callback and moves on",
+      detail: "The callback does not run, even with a 0ms delay. setTimeout hands it to the timers phase and returns instantly, so execution continues to the next line without waiting.",
+    },
+    {
+      lines: "3",
+      title: "The promise callback is queued as a microtask",
+      detail: "Promise.resolve() is already settled, so .then() schedules its callback on the microtask queue - a separate, higher-priority queue from the timer callback queued a moment ago.",
+    },
+    {
+      lines: "4",
+      title: "The last synchronous line runs",
+      detail: "This prints before either callback, because both of those are still sitting in queues waiting for the call stack to empty. Output so far: 1, then 4.",
+    },
+    {
+      lines: "3",
+      title: "Call stack empties - microtasks drain first",
+      detail: "Now that synchronous code is finished, Node drains the entire microtask queue before advancing to any phase. The promise callback runs here, printing 3.",
+    },
+    {
+      lines: "2",
+      title: "Only now does the timer phase run",
+      detail: "With microtasks exhausted, the loop finally reaches the timers phase and runs the setTimeout callback, printing 2 last. Final order: 1, 4, 3, 2.",
+    },
+  ]}
+/>
 
 Notice how the promise callback (3) runs before the timer (2), even though the timer delay is zero. The microtask queue is drained completely before the loop advances.
 

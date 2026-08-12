@@ -1,0 +1,164 @@
+---
+title: "Build a real-time chat server"
+description: "A minimal real-time chat server over WebSockets - connection state, broadcasting to a room, and what changes the moment you need more than one server process handling connections."
+keywords: ["how to build a chat server", "websocket server node js tutorial", "real-time chat architecture", "websocket vs http explained", "how does websocket broadcasting work", "scaling websockets across servers", "redis pub sub websocket", "build a chat app backend", "websocket connection state", "real-time messaging system design"]
+difficulty: "Intermediate"
+---
+
+## Why not just poll over HTTP
+
+HTTP is request-response: the client asks, the server answers, the connection is done. Chat needs the opposite direction too - the server needs to push a message to a client the moment someone else sends one, without that client asking first. You could poll every second with regular HTTP requests, but that means constant overhead and up to a second of lag on every message. WebSockets solve this properly: one TCP connection, upgraded once via an HTTP handshake, then left open so either side can send data at any time.
+
+## Setting up a raw WebSocket server
+
+The `ws` package is deliberately low-level - it gives you the connection and lets you decide everything else, which is exactly what makes the mechanics visible instead of hidden behind a framework.
+
+```js
+import { WebSocketServer } from "ws";
+
+const wss = new WebSocketServer({ port: 8080 });
+
+wss.on("connection", (socket) => {
+  console.log("client connected");
+
+  socket.on("message", (data) => {
+    console.log("received:", data.toString());
+  });
+
+  socket.on("close", () => {
+    console.log("client disconnected");
+  });
+});
+```
+
+`wss.on("connection", ...)` fires once per client that completes the handshake. Each `socket` is a full-duplex connection - `socket.send(data)` pushes data to that one client, and the `message` event fires whenever that client sends something. Nothing here is chat-specific yet; this is just the transport.
+
+## Tracking clients and rooms
+
+A chat server needs to answer two questions fast: who's connected, and who's in which room. An in-memory Map per room, holding the set of sockets currently in it, is enough for a single process:
+
+```js
+const rooms = new Map(); // roomName -> Set<socket>
+
+function joinRoom(socket, roomName) {
+  if (!rooms.has(roomName)) {
+    rooms.set(roomName, new Set());
+  }
+  rooms.get(roomName).add(socket);
+  socket.roomName = roomName; // stash it on the socket for cleanup later
+}
+
+function leaveRoom(socket) {
+  const room = rooms.get(socket.roomName);
+  if (!room) return;
+
+  room.delete(socket);
+  if (room.size === 0) {
+    rooms.delete(socket.roomName); // don't let empty rooms pile up forever
+  }
+}
+```
+
+Wire that into the connection lifecycle, and parse incoming messages as JSON so the client can send structured events instead of raw strings:
+
+```js
+wss.on("connection", (socket) => {
+  socket.on("message", (data) => {
+    let msg;
+    try {
+      msg = JSON.parse(data.toString());
+    } catch {
+      return; // ignore malformed frames rather than crashing the handler
+    }
+
+    if (msg.type === "join") {
+      joinRoom(socket, msg.room);
+    } else if (msg.type === "chat") {
+      broadcast(socket.roomName, { type: "chat", user: msg.user, text: msg.text });
+    }
+  });
+
+  socket.on("close", () => leaveRoom(socket));
+});
+```
+
+The `close` handler matters as much as `connection` does. Without it, `leaveRoom` never runs, and the room's Set keeps a reference to a socket that's no longer connected to anything - a slow, steady leak that only becomes visible after enough churn.
+
+## Broadcasting to a room
+
+```js
+function broadcast(roomName, message) {
+  const room = rooms.get(roomName);
+  if (!room) return;
+
+  const payload = JSON.stringify(message);
+  for (const client of room) {
+    if (client.readyState === client.OPEN) {
+      client.send(payload);
+    }
+  }
+}
+```
+
+The `readyState` check matters under real load. A socket can be in the room's Set but no longer actually `OPEN` - it might be `CLOSING`, in the brief window between the client disconnecting and the `close` event finishing its handler. Calling `.send()` on a socket that isn't open either throws or silently drops the message depending on the exact state, so checking first avoids both.
+
+<Callout>
+`JSON.stringify(message)` runs once per broadcast call above, not once per recipient, and that's deliberate. Serializing the payload separately for every client in a large room is wasted CPU work repeated N times for identical output - stringify once, send the same buffer to everyone.
+</Callout>
+
+## The problem with more than one server instance
+
+Everything above works correctly right up until you need a second server process - which happens fast, since one Node process handling every WebSocket connection for your whole user base doesn't scale past a certain point, and you'll want at least two instances behind a load balancer for redundancy alone.
+
+Here's the failure: client A connects to server instance 1. Client B connects to server instance 2. Both are in the same chat room, as far as the application is concerned. Client A sends a message. Server 1's `broadcast()` function loops over its local `rooms` Map - which only knows about sockets that connected to *this* process. Client B's socket lives in server 2's memory, in a completely separate `rooms` Map that server 1 has no access to. Client B never receives the message. Not because of a bug in `broadcast()` - the function is correct - but because the room state itself is fragmented across processes that don't know about each other.
+
+## Fixing it with Redis Pub/Sub
+
+The fix is to stop treating in-memory broadcast as the source of truth for "everyone in the room," and instead have every server instance publish outgoing messages to a shared Redis channel, while also subscribing to that same channel so it hears what every *other* instance publishes.
+
+```js
+import { createClient } from "redis";
+
+const publisher = createClient();
+const subscriber = createClient(); // pub/sub requires a dedicated connection
+await publisher.connect();
+await subscriber.connect();
+
+await subscriber.subscribe("chat-broadcast", (rawMessage, channel) => {
+  const { room, payload } = JSON.parse(rawMessage);
+  broadcastLocal(room, payload); // only reaches sockets connected to THIS instance
+});
+```
+
+`redis` requires a separate client for subscribing, because once a connection issues `SUBSCRIBE` it's dedicated to receiving pub/sub messages and can't be used for normal commands anymore - that's why `publisher` and `subscriber` are two different clients here, not one reused connection. The subscribe callback receives the message first and the channel name second, which only matters once you're subscribed to more than one channel on the same client.
+
+The broadcast function changes to publish instead of (or in addition to) sending locally:
+
+```js
+function broadcastLocal(roomName, message) {
+  const room = rooms.get(roomName);
+  if (!room) return;
+
+  const payload = JSON.stringify(message);
+  for (const client of room) {
+    if (client.readyState === client.OPEN) {
+      client.send(payload);
+    }
+  }
+}
+
+async function broadcast(roomName, message) {
+  await publisher.publish(
+    "chat-broadcast",
+    JSON.stringify({ room: roomName, payload: message }),
+  );
+}
+```
+
+Every instance - including the one that received the original message from its own client - publishes to the channel and also subscribes to it. When server 1 publishes, Redis delivers that message to every subscriber, including server 1 itself and server 2. Server 1's subscription handler calls `broadcastLocal`, which reaches client A. Server 2's subscription handler, running the identical code on a different process, calls its own `broadcastLocal`, which reaches client B. Neither server needs to know the other exists, or how many other instances are running - Redis is the only thing both sides need a connection to.
+
+This is the same shape of fix that shows up anywhere state needs to be shared across processes: stop keeping the source of truth in one process's memory, and move it to something every process can reach.
+
+## Where to go from here
+
+Real chat systems need message history - Redis Pub/Sub only delivers to clients connected *right now*, so a client that reconnects after a drop needs a separate mechanism (a database query for recent messages) to catch up on what it missed while disconnected. Presence - who's currently online in a room - needs its own tracking, since Pub/Sub tells you about messages, not connection state, and that state has to be reconciled per instance the same way room membership does. And at meaningful scale, a single Redis Pub/Sub channel becomes a bottleneck all its own, which is usually when teams move to a dedicated message broker or a managed WebSocket/real-time service built for exactly this fan-out pattern.

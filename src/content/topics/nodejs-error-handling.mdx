@@ -1,0 +1,143 @@
+---
+title: "Error Handling in Node.js"
+description: "Why uncaught exceptions and unhandled rejections are different mechanisms, and what actually happens after each."
+keywords: ["node js error handling", "uncaught exception vs unhandled rejection", "process.on uncaughtException", "unhandledRejection node js", "try catch async node js", "error handling node js", "uncaughtException", "unhandledRejection", "async error handling", "process exit code", "domains node js deprecated", "crash and restart pattern", "graceful shutdown node js", "node js production errors", "PM2 restart"]
+phase: "Phase 1"
+group: "language-runtimes"
+---
+
+## Two different failure modes, not one
+
+Node has two separate mechanisms for errors that nobody caught, and they behave differently by default. An **uncaught exception** is a synchronous throw that nothing wrapped in a `try/catch`. An **unhandled rejection** is a promise that rejected with no `.catch()` anywhere in its chain. Same underlying idea - an error nobody dealt with - but different plumbing, different events, and until fairly recently, different consequences for whether your process stayed alive.
+
+## try/catch doesn't cross an async boundary the way people expect
+
+```js
+function loadUser(id, callback) {
+  try {
+    fs.readFile(`./users/${id}.json`, (err, data) => {
+      if (err) throw err; // this throw is NOT caught below
+      callback(JSON.parse(data));
+    });
+  } catch (err) {
+    console.error("caught:", err); // never runs for the error above
+  }
+}
+```
+
+The `try/catch` wraps the call to `fs.readFile()`, not the callback passed into it. By the time that callback runs, the original `try` block has already returned - the call stack it was part of is gone. A `throw` inside the callback becomes an uncaught exception, full stop, regardless of the `try/catch` sitting visually right next to it.
+
+`async/await` fixes this specific problem, because `await` keeps the surrounding function on the stack until the awaited promise settles:
+
+```js
+async function loadUser(id) {
+  try {
+    const data = await fs.promises.readFile(`./users/${id}.json`);
+    return JSON.parse(data);
+  } catch (err) {
+    console.error("caught:", err); // this one actually runs
+  }
+}
+```
+
+Same shape, different result, because `await` is what keeps the `try` block relevant across the async gap. Plain callbacks never had that.
+
+The reason comes down to what is on the call stack at the instant the error is
+thrown. Stepping through both versions in execution order, rather than reading
+order, makes it hard to un-see:
+
+<CodeWalkthrough
+  title="Why the catch never fires, and why await fixes it"
+  language="js"
+  code={`function loadUser(id, callback) {
+    try {
+      fs.readFile("./users/" + id + ".json", (err, data) => {
+        if (err) throw err;
+        callback(JSON.parse(data));
+      });
+    } catch (err) {
+      console.error("caught:", err);
+    }
+  }
+
+  async function loadUserAwait(id) {
+    try {
+      const data = await fs.promises.readFile("./users/" + id + ".json", "utf8");
+      return JSON.parse(data);
+    } catch (err) {
+      console.error("caught:", err);
+    }
+  }`}
+  steps={[
+    {
+      lines: "2-6",
+      title: "What the try block actually wraps",
+      detail: "It wraps the call to fs.readFile, and nothing more. That call registers a callback with libuv and returns in microseconds - it has not read anything yet, and it cannot throw the error you care about, because that error does not exist yet.",
+    },
+    {
+      lines: "7-10",
+      title: "The function returns, and the catch goes with it",
+      detail: "Execution falls past the catch on line 7 without entering it, and loadUser returns on line 10. Its stack frame is popped. The catch clause is not waiting anywhere - a catch is a property of a frame that is currently on the stack, and this one is gone.",
+    },
+    {
+      lines: "3-4",
+      title: "Much later, the callback runs on an empty stack",
+      detail: "The disk read finishes, libuv queues the callback, and the event loop invokes it during a poll phase. It runs with nothing beneath it but the event loop itself - none of the frames that existed when line 3 was written are there anymore.",
+    },
+    {
+      lines: "4,8",
+      title: "The throw has nothing above it to catch it",
+      detail: "throw walks up the current stack looking for an enclosing try. There is no such frame, so this becomes an uncaughtException and by default terminates the process. Line 8 is unreachable for this error no matter how it is written.",
+    },
+    {
+      lines: "14",
+      title: "await changes what the stack looks like on resume",
+      detail: "fs.promises.readFile returns a promise, and await suspends loadUserAwait rather than returning from it. When the promise settles, execution resumes at this exact line with the try block still in effect - a rejection is thrown here, inside the try, instead of on some unrelated stack.",
+    },
+    {
+      lines: "15-17",
+      title: "One catch, both failure modes",
+      detail: "A read failure and a SyntaxError from a malformed JSON file both land in the catch on lines 16-17, because both happen while the try on line 13 is still on the stack. The rule underneath all of this: a try/catch protects the code that runs while its frame is live, not the code that a function it called happens to schedule for later.",
+    },
+  ]}
+/>
+
+## What each event actually does by default
+
+```js
+process.on("uncaughtException", (err, origin) => {
+  console.error("uncaught:", err, origin);
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("unhandled rejection:", reason);
+});
+```
+
+Without a listener, an uncaught exception prints a stack trace and terminates the process immediately - Node considers the process state unknown after this, since the exception could have happened mid-mutation of anything. An unhandled rejection, historically, just printed a warning and kept running. That inconsistency was confusing enough that Node changed the default: since Node 15, an unhandled rejection also crashes the process, unless you've registered a handler for it.
+
+<Callout>
+Registering `process.on("uncaughtException", ...)` does not mean your app "handles" the error and moves on safely - it means Node no longer crashes automatically, but the process is still in whatever broken state it was in when the exception fired. Continuing to serve requests after that is explicitly against Node's own guidance in the docs. Memory could be corrupted, a lock could be held forever, a database connection could be half-open. The safe move after `uncaughtException` fires is to log everything you need, close what you can cleanly, and call `process.exit(1)` - not to swallow the error and keep taking traffic.
+</Callout>
+
+## Domains: mentioned so you know not to reach for them
+
+Node had a `domains` module that tried to let you group async operations and route their errors to one handler, effectively simulating `try/catch` across callback boundaries before `async/await` existed. It's been deprecated for years - it never fully worked for every async pattern, and it added overhead to every operation it tracked. If you see `require("domain")` in a codebase, that's legacy code from before `async/await` was standard, not something to model new code on.
+
+## The actual production pattern: crash and restart
+
+The right way to think about `uncaughtException` and `unhandledRejection` isn't "how do I stay up." It's "how do I fail fast and come back clean." In production, that means:
+
+```js
+process.on("uncaughtException", (err) => {
+  logger.fatal(err, "uncaught exception, shutting down");
+  server.close(() => process.exit(1));
+  setTimeout(() => process.exit(1), 5000).unref(); // force exit if close hangs
+});
+```
+
+A process manager - PM2, Kubernetes restarting a crashed pod, systemd, whatever's running the deployment - brings the process back up immediately. Requests in flight during the crash fail, but that's a smaller blast radius than a process silently running with corrupted internal state for the next six hours until someone notices something is wrong.
+
+## What you can actually prevent versus what you catch
+
+Catching every possible error at the edges isn't really the goal - most of that work happens by writing `try/catch` around specific operations you know can fail (a JSON parse, a database query, a file read) and letting `uncaughtException`/`unhandledRejection` be the last-resort net for genuine bugs, not the primary error handling strategy. If your logs are full of `uncaughtException` events in normal operation, that's a signal you're missing `try/catch` or `.catch()` in specific places - not that the global handler needs to get smarter.

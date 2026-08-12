@@ -1,0 +1,90 @@
+---
+title: "API gateways"
+description: "Use one front door to route requests, check access, and keep backend services simpler."
+keywords: ["API gateway", "routing", "authentication offloading", "api gateway vs reverse proxy", "what does an api gateway do", "kong api gateway", "aws api gateway explained", "api gateway rate limiting", "api gateway authentication", "microservices gateway pattern", "api gateway request transformation", "backend for frontend pattern", "api gateway vs load balancer", "single entry point microservices", "gateway routing by path"]
+phase: "Phase 2"
+group: "protocols-and-apis"
+---
+
+## A gateway is a reverse proxy that understands the API, not just the bytes
+
+A plain reverse proxy, as covered in the proxies topic, forwards traffic and can load-balance, terminate TLS, and cache - all without knowing anything about what's actually inside the requests it's forwarding. An API gateway sits at the same position in the stack but is deliberately API-aware: it parses request paths, headers, and often payloads, and makes routing and access decisions based on what it finds. A reverse proxy asks "where does this request go." An API gateway asks that plus "is this request even allowed to go there, and does it need to be transformed first."
+
+Concretely, an API gateway typically handles:
+
+- **Authentication and authorization** - validating a JWT or API key once, at the edge, before a request ever reaches a backend service
+- **Rate limiting** - enforcing per-client request limits centrally, rather than each service implementing its own
+- **Request routing by path** - `/orders/*` goes to the order service, `/users/*` goes to the user service, `/payments/*` goes to the payment service, all behind one public hostname
+- **Request/response transformation** - reshaping a request before forwarding it, or aggregating responses from multiple backend calls into one response for the client
+- **Protocol translation** - accepting REST from the public internet and translating to internal gRPC calls, a pattern mentioned in the gRPC topic
+
+<Visual id="gateway-route-or-reject" />
+
+## A concrete before/after
+
+Before a gateway, in a microservices setup with an order service, a user service, and a payment service, each service commonly ends up implementing its own auth check:
+
+```js
+// order-service - repeated in every service
+app.use(async (req, res, next) => {
+  const token = req.headers.authorization?.split(" ")[1];
+  if (!token) return res.status(401).json({ error: "missing token" });
+  try {
+    req.user = await verifyJwt(token);
+    next();
+  } catch {
+    res.status(401).json({ error: "invalid token" });
+  }
+});
+```
+
+```js
+// user-service - the same logic, copy-pasted
+app.use(async (req, res, next) => {
+  const token = req.headers.authorization?.split(" ")[1];
+  if (!token) return res.status(401).json({ error: "missing token" });
+  try {
+    req.user = await verifyJwt(token);
+    next();
+  } catch {
+    res.status(401).json({ error: "invalid token" });
+  }
+});
+```
+
+Same logic, duplicated across every service, and every service needs to be updated in lockstep if the JWT verification logic ever changes - a new required claim, a rotated signing key, a switch to a different token format.
+
+After introducing a gateway, the check happens once, at the edge, and the identity it establishes is passed downstream as a trusted header:
+
+```js
+// gateway - runs once, for every request, regardless of destination service
+app.use(async (req, res, next) => {
+  const token = req.headers.authorization?.split(" ")[1];
+  if (!token) return res.status(401).json({ error: "missing token" });
+  try {
+    const user = await verifyJwt(token);
+    req.headers["x-user-id"] = user.id; // trusted, gateway-verified identity
+    next();
+  } catch {
+    res.status(401).json({ error: "invalid token" });
+  }
+});
+```
+
+```js
+// order-service - trusts the gateway, no JWT logic at all
+app.get("/orders", (req, res) => {
+  const userId = req.headers["x-user-id"]; // gateway already verified this
+  res.json(getOrdersForUser(userId));
+});
+```
+
+Backend services stop needing to know anything about JWTs, signing keys, or token formats - they trust a header the gateway has already verified, on the assumption that the network between the gateway and backend services is itself trusted (typically a private VPC, sometimes reinforced with mTLS).
+
+<Callout>
+Centralizing auth at the gateway is a real simplification, but it also means the gateway becomes a single point that every request depends on - a bug or outage there affects every service behind it at once, unlike a bug in one service's own auth check, which only breaks that one service. Teams that adopt a gateway are trading duplicated-but-isolated failure for centralized-but-shared failure, and that trade is usually worth it, but it's a trade, not a strict improvement with no downside.
+</Callout>
+
+## Gateway vs load balancer vs reverse proxy, in one line each
+
+A load balancer distributes traffic across instances of the same service. A reverse proxy forwards and shapes traffic without understanding the application protocol beyond HTTP itself. An API gateway understands the API - it makes decisions based on paths, tokens, and payloads, and routes to entirely different backend services rather than different replicas of the same one. In practice these roles often collapse into the same product (Kong, AWS API Gateway, or an Nginx/Envoy setup configured with enough rules can do all three), but the roles themselves are distinct even when one tool plays all of them.

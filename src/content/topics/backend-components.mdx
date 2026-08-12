@@ -10,6 +10,8 @@ group: "backend-fundamentals"
 
 Say "the backend is slow" and you've said almost nothing useful, because "the backend" isn't one system - it's shorthand for a handful of distinct pieces, each with its own job, its own failure modes, and its own reason for being slow. Knowing what those pieces actually are is the difference between a vague complaint and an actual starting point for debugging.
 
+<Visual id="backend-pieces-path" />
+
 ## The application server: where your logic lives
 
 This is the part most people picture when they say "backend" - the running process executing your code, deciding what a request should do, and producing a response. It's a Node process, a Django app, a Spring Boot service - whatever framework, this is the layer that holds your actual business rules: is this user allowed to do this, what does this endpoint return, what should happen next.

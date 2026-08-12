@@ -27,6 +27,91 @@ body {
   color: #fff;
 }
 
+/* Glossary terms: deliberately quieter than a real content link, so a lesson
+   with a dozen auto-linked terms doesn't read as a wall of orange. */
+.prose-article a.glossary-term,
+.glossary-term {
+  position: relative;
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px dashed rgba(0, 0, 0, 0.3);
+  cursor: help;
+  transition: border-color 150ms ease, color 150ms ease;
+}
+.prose-article a.glossary-term:hover,
+.glossary-term:hover,
+.glossary-term:focus-visible {
+  color: #ff4d00;
+  border-bottom-color: #ff4d00;
+  text-decoration: none;
+}
+.glossary-tooltip {
+  position: absolute;
+  bottom: calc(100% + 9px);
+  left: 0;
+  z-index: 40;
+  width: max-content;
+  max-width: min(21rem, calc(100vw - 2rem));
+  padding: 0.7rem 0.85rem;
+  border-radius: 10px;
+  background: #111;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 12.5px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1.55;
+  letter-spacing: 0;
+  text-align: left;
+  text-transform: none;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(3px);
+  transition: opacity 140ms ease, transform 140ms ease, visibility 140ms;
+  pointer-events: none;
+}
+.glossary-term:hover .glossary-tooltip,
+.glossary-term:focus-visible .glossary-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+.glossary-tooltip-term {
+  display: block;
+  margin-bottom: 0.3rem;
+  color: #ff8051;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+/* Narrow viewports: an absolutely-positioned tooltip anchored to the term's
+   left edge will push past the right edge of the screen when the term sits
+   near it, which makes the whole page scroll sideways. Pin it to the viewport
+   instead - with both left and right set it cannot overflow horizontally. */
+@media (max-width: 40rem) {
+  .glossary-tooltip {
+    position: fixed;
+    top: auto;
+    bottom: 1rem;
+    left: 1rem;
+    right: 1rem;
+    width: auto;
+    max-width: none;
+  }
+}
+
+/* Touch devices have no real hover, and the term is already a link to the
+   glossary entry - so tapping it navigates there instead. Don't render a
+   tooltip that can only flash on tap. */
+@media (hover: none) {
+  .glossary-tooltip { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glossary-tooltip { transition: none; }
+}
+
 .sidebar-scroll {
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 0, 0, 0.15) transparent;

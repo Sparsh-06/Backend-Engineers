@@ -14,6 +14,8 @@ Now text the same question instead. You send it, and immediately go do something
 
 Nearly every confusing thing about `async`/`await`, callbacks, promises, and threads in any programming language is a variation on this one distinction. Get the phone-call-versus-text picture solid first, and the syntax in whatever language you use is just vocabulary for the same idea.
 
+<Visual id="sync-vs-async-waiting" />
+
 ## Why "waiting" is the actual cost
 
 The reason this distinction exists at all is that some operations are slow relative to how fast a computer can think - reading a file off disk, waiting for a database, calling another server over the network. All of these take a comparatively enormous amount of time, and during that time the computer's processor is doing absolutely nothing except sitting there.

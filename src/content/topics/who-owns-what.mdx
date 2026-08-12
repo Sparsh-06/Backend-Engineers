@@ -10,6 +10,8 @@ group: "backend-fundamentals"
 
 "The whole app" isn't one thing to debug. It's three layers, and they fail in completely different ways: what the user sees, what decides whether they're allowed to do it, and what keeps both of those actually reachable. Mixing these up is the single most common reason a bug takes an hour instead of five minutes for someone newer to backend work - you end up staring at the wrong layer entirely.
 
+<Visual id="frontend-backend-ownership" />
+
 ## Frontend renders. It doesn't decide.
 
 React components, CSS, whatever runs in the user's browser - its job is showing information and turning clicks into requests. That's it. It is not, and cannot be, a security boundary, because anyone can open dev tools and send whatever they want directly to your API, skipping the frontend entirely.

@@ -39,6 +39,67 @@ JSON has no date type at all. Every timestamp you've ever seen in a JSON payload
 This is also why two systems can "agree" on a JSON payload and still disagree in practice - one side reads a number as an integer, the other reads the same value as a float, and a downstream comparison quietly fails. The format doesn't enforce meaning, only shape.
 </Callout>
 
+The clearest way to see the loss is to send an object through the full round trip
+and compare what comes back. Everything JavaScript knows about types has to fit
+through a string in the middle:
+
+<CodeWalkthrough
+  title="What survives a stringify/parse round trip"
+  language="js"
+  code={`const user = {
+    id: 42,
+    name: "Ada",
+    createdAt: new Date("2024-01-15T09:30:00Z"),
+    nickname: undefined,
+    tags: new Set(["admin", "editor"]),
+    greet() {
+      return "hi";
+    },
+  };
+
+  const wire = JSON.stringify(user);
+  // '{"id":42,"name":"Ada","createdAt":"2024-01-15T09:30:00.000Z","tags":{}}'
+
+  const received = JSON.parse(wire);
+
+  typeof received.createdAt; // "string", not a Date
+  "nickname" in received;    // false - the key is not in the text at all
+  received.tags;             // {} - an empty object, not a Set
+  typeof received.greet;     // "undefined" - the method is gone`}
+  steps={[
+    {
+      lines: "1-10",
+      title: "What the object looks like in memory",
+      detail: "Six properties, and only two of them (a number and a string) have a direct JSON equivalent. The Date, the undefined, the Set, and the method are all things the running program understands and the format does not.",
+    },
+    {
+      lines: "12-13",
+      title: "stringify flattens it into one string",
+      detail: "The comment on line 13 is the actual output. Three of the six keys either changed type or disappeared entirely, and nothing warned about it - JSON.stringify has no error case for this.",
+    },
+    {
+      lines: "15",
+      title: "The other side parses the text back",
+      detail: "The receiver has only the string. It cannot recover anything that was not written into it, no matter how carefully it parses - the information was lost at serialization, not here.",
+    },
+    {
+      lines: "4,17",
+      title: "The Date came back as a string",
+      detail: "JSON.stringify calls Date.prototype.toJSON, which produces an ISO 8601 string. Parsing gives that string back, not a Date. Calling .getTime() on it throws, and any code that assumed a Date object breaks at the call site rather than at the parse.",
+    },
+    {
+      lines: "5,18",
+      title: "The undefined key vanished completely",
+      detail: "A property whose value is undefined is skipped by JSON.stringify, so the key never appears in the output. On the other side, 'nickname' in received is false - which reads differently from a key present with a null value, and code that distinguishes the two will disagree with itself across the round trip.",
+    },
+    {
+      lines: "6-9,19-20",
+      title: "The Set became {} and the method disappeared",
+      detail: "JSON.stringify only serializes own enumerable properties. A Set keeps its contents internally, so it stringifies as an empty object, and functions are dropped the same way undefined values are. Maps behave identically to Sets here. To send either one, convert it yourself - Array.from(set) - and rebuild it on the other side.",
+    },
+  ]}
+/>
+
 ## Content negotiation: how the two sides agree on format
 
 A server can usually respond in more than one format, and the client says which one it wants using the `Accept` header, while the server states what it's actually sending back using `Content-Type`:

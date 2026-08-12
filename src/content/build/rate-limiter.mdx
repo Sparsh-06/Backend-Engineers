@@ -1,0 +1,169 @@
+---
+title: "Build a rate limiter"
+description: "A token-bucket rate limiter from scratch in Node.js - the same core idea behind every 'too many requests' response you've ever hit, built so you actually understand the trade-offs instead of just importing a library."
+keywords: ["how to build a rate limiter", "token bucket algorithm explained", "rate limiting node js", "build rate limiter from scratch", "sliding window vs token bucket", "redis rate limiter", "api rate limiting tutorial", "how does rate limiting work", "distributed rate limiter", "leaky bucket vs token bucket"]
+difficulty: "Beginner"
+---
+
+## The naive approach, and why it breaks
+
+The obvious first attempt: keep a counter per client, reset it every N seconds.
+
+```js
+const counts = new Map(); // clientId -> { count, windowStart }
+const LIMIT = 100;
+const WINDOW_MS = 60_000;
+
+function isAllowed(clientId) {
+  const now = Date.now();
+  const entry = counts.get(clientId);
+
+  if (!entry || now - entry.windowStart >= WINDOW_MS) {
+    counts.set(clientId, { count: 1, windowStart: now });
+    return true;
+  }
+
+  if (entry.count >= LIMIT) return false;
+  entry.count++;
+  return true;
+}
+```
+
+This is the "fixed window" approach, and it has a real problem at the boundary. Say the limit is 100 requests per minute. A client sends 100 requests at 0:59, right before the window resets, then another 100 at 1:00, right after. Both batches are individually within the limit, but the client just sent 200 requests in about two seconds. The window resets on a wall-clock boundary, not relative to when the client's traffic actually started, so bursts that straddle that boundary slip through twice.
+
+That's not a bug in the code above - it's a property of fixed windows. Any fixed-window limiter, no matter how carefully implemented, has this edge.
+
+## The token-bucket algorithm
+
+Token bucket fixes this by tracking a continuously refilling budget instead of a count tied to a clock boundary. Picture a bucket that holds up to `capacity` tokens. Tokens drip in at a steady rate. Every request costs one token. No tokens, no request.
+
+The trick that makes this cheap: you don't need a timer ticking every millisecond to "add" tokens. You just compute how many tokens *should* have accumulated since the last time you checked, based on elapsed real time.
+
+```js
+class TokenBucket {
+  constructor({ capacity, refillRatePerSec }) {
+    this.capacity = capacity;
+    this.refillRatePerSec = refillRatePerSec;
+    this.tokens = capacity;
+    this.lastRefill = Date.now();
+  }
+
+  refill() {
+    const now = Date.now();
+    const elapsedSec = (now - this.lastRefill) / 1000;
+    const newTokens = elapsedSec * this.refillRatePerSec;
+
+    if (newTokens > 0) {
+      this.tokens = Math.min(this.capacity, this.tokens + newTokens);
+      this.lastRefill = now;
+    }
+  }
+
+  tryConsume(cost = 1) {
+    this.refill();
+    if (this.tokens >= cost) {
+      this.tokens -= cost;
+      return true;
+    }
+    return false;
+  }
+}
+```
+
+A client bucket with `capacity: 100, refillRatePerSec: 1.67` (roughly 100/min) allows a burst of up to 100 requests immediately if the bucket is full, then throttles down to the steady refill rate. That burst tolerance is a deliberate feature, not a leftover flaw - it's what lets a client that's been idle for a while make a quick handful of requests without being punished for the idle time.
+
+Wiring it into requests just means keeping one bucket per client:
+
+```js
+const buckets = new Map();
+
+function rateLimit(clientId) {
+  if (!buckets.has(clientId)) {
+    buckets.set(clientId, new TokenBucket({ capacity: 20, refillRatePerSec: 0.5 }));
+  }
+  return buckets.get(clientId).tryConsume();
+}
+
+app.use((req, res, next) => {
+  const clientId = req.ip;
+  if (!rateLimit(clientId)) {
+    res.status(429).json({ error: "Too many requests" });
+    return;
+  }
+  next();
+});
+```
+
+This works fine for a single process. The moment you run more than one server instance behind a load balancer, each instance has its own `buckets` Map, and a client can get roughly `capacity * instanceCount` requests through before any single instance's bucket empties. The state needs to live somewhere shared.
+
+## Making it distributed with Redis
+
+Redis is the obvious shared store - fast, and every instance can reach it. The examples below use `ioredis`'s client API. The naive port looks like this:
+
+```js
+async function isAllowedNaive(clientId) {
+  const key = `ratelimit:${clientId}`;
+  const count = await redis.get(key);
+
+  if (count === null) {
+    await redis.set(key, 1, "EX", 60);
+    return true;
+  }
+
+  if (Number(count) >= 100) return false;
+
+  await redis.incr(key);
+  return true;
+}
+```
+
+This has a race condition. Two requests from the same client can both call `GET`, both see `count = 99`, both conclude "under the limit," and both proceed - now the client is at 101 with a limit of 100. The check and the increment are two separate round trips, and nothing stops another request from landing in between them.
+
+`INCR` on its own is atomic in Redis - a single command, no read-modify-write gap. The fix is to increment first, then look at the result, rather than reading first:
+
+```js
+async function isAllowed(clientId) {
+  const key = `ratelimit:${clientId}`;
+  const count = await redis.incr(key); // atomic: returns the new value
+
+  if (count === 1) {
+    // first request in this window - set the expiry now
+    await redis.expire(key, 60);
+  }
+
+  return count <= 100;
+}
+```
+
+This closes the race for the counting itself, but there's still a small gap between the `INCR` and the `EXPIRE` - if the process crashes between those two lines, the key never expires and that client stays blocked forever. For anything that needs to be airtight, push the whole check into a Lua script, which Redis runs as a single atomic unit with no other command able to interleave:
+
+```js
+const RATE_LIMIT_SCRIPT = `
+  local current = redis.call("INCR", KEYS[1])
+  if current == 1 then
+    redis.call("EXPIRE", KEYS[1], ARGV[1])
+  end
+  return current
+`;
+
+async function isAllowedAtomic(clientId) {
+  const count = await redis.eval(RATE_LIMIT_SCRIPT, 1, `ratelimit:${clientId}`, 60);
+  return count <= 100;
+}
+```
+
+<Callout>
+This isn't Redis-specific paranoia. Any time two processes read a value, decide something based on it, then write a new value back, there's a window for another process to sneak in between the read and the write. Redis just makes the fix cheap: `INCR` and Lua scripts run atomically on the Redis server itself, so there's no read-modify-write gap for a second request to land in.
+</Callout>
+
+## Token bucket vs sliding window vs fixed window
+
+Fixed window (what we started with) is the cheapest to implement and reason about, but it allows the boundary-burst problem above. It's fine when the limit is a soft guideline rather than a hard guarantee - protecting against abuse, not billing accuracy.
+
+Token bucket is a good default. It naturally tolerates short bursts up to the bucket capacity, which usually matches how real clients behave - a page load firing eight requests at once, then going quiet. The trade-off is that "burst up to capacity, then throttle" is a deliberate leniency, and if your actual requirement is "never more than X in any Y-second window, full stop," token bucket technically allows brief excursions above the average rate.
+
+Sliding-window-log tracks the actual timestamp of every request in the window (a Redis sorted set works well - score and value both the timestamp, trimming anything older than the window on each check) and checks the count precisely, with no boundary artifact and no burst allowance beyond the true limit. It's the most accurate, and the most expensive: memory and computation scale with request volume instead of being one counter per client. Reach for it when you need a hard, auditable guarantee - billing enforcement, or a limit written into a contract - rather than general abuse protection.
+
+## Where to go from here
+
+A production limiter usually keys on more than IP - IP alone punishes an entire office or NAT gateway for one bad actor's traffic, so most real systems combine an API key or user ID with IP as a fallback. Rejected requests should come back with a `Retry-After` header telling the client how many seconds to wait, rather than leaving it to guess and hammer the endpoint again immediately. And it's worth emitting a metric on every rejection - a sudden spike in 429s is often the earliest signal that something upstream changed, whether that's a legitimate traffic surge or a client retrying too aggressively after a deploy.

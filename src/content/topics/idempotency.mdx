@@ -20,6 +20,8 @@ Send a payment request. The server processes it successfully and charges the car
 
 The honest answer is: you can't know, so the only safe thing to do is retry. And now the real question is what happens if that retry hits a server that already processed the first attempt. If the operation isn't idempotent, the user gets charged twice for something that looked, from their end, like it might have just failed once.
 
+<Visual id="idempotency-key-retry" />
+
 <Callout>
 This is not a rare edge case. In any distributed system, a request can fail after the work is done but before the confirmation gets back - this is usually called "at-least-once delivery," and it means duplicate attempts are not a bug in your network, they're a fact of how networks behave. Idempotency is how you make that fact survivable.
 </Callout>

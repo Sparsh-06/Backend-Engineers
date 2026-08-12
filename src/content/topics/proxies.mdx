@@ -1,0 +1,66 @@
+---
+title: "Reverse and forward proxies"
+description: "Understand the helpful middle layer that receives traffic before it reaches your app."
+keywords: ["reverse proxy", "forward proxy", "Envoy", "nginx reverse proxy explained", "forward proxy vs reverse proxy", "what does a reverse proxy do", "tls termination reverse proxy", "load balancing nginx", "corporate proxy explained", "reverse proxy caching", "proxy server basics", "envoy proxy explained", "reverse proxy vs load balancer", "api gateway vs reverse proxy", "proxy compression gzip"]
+phase: "Phase 2"
+group: "protocols-and-apis"
+---
+
+## The directional difference is the whole concept
+
+Both forward and reverse proxies sit between a client and a server, and both intercept and forward traffic. The difference is entirely about which side the proxy represents.
+
+A **forward proxy** sits in front of clients and represents them to the outside world. The server on the other end sees the proxy's IP, not the client's - the client is hidden behind it. A common real example: a corporate network routes all employee internet traffic through a forward proxy, which can enforce access policy (block certain sites), log outbound traffic, or cache commonly requested resources. From the perspective of any external website, every employee's request looks like it's coming from the same proxy.
+
+A **reverse proxy** sits in front of servers and represents them to the outside world. The client has no idea, and generally doesn't need to know, which actual backend server handled its request - it only ever talks to the reverse proxy's address. Nginx sitting in front of a fleet of application servers is the textbook example: clients hit `api.example.com`, which resolves to Nginx, and Nginx decides which backend instance actually handles each request.
+
+The pattern is symmetric: a forward proxy hides who's asking, a reverse proxy hides who's answering.
+
+<Visual id="forward-vs-reverse-proxy" />
+
+## What a reverse proxy is actually doing in production
+
+A reverse proxy in a real stack is rarely "just forwarding" - it's typically doing several jobs at once:
+
+**TLS termination.** The reverse proxy holds the certificate, does the TLS handshake with the client, and often forwards the decrypted request to backend servers over plain HTTP on a private network - the exact mechanism covered in the TCP/TLS topic. This centralizes certificate management instead of every backend instance needing its own certificate.
+
+**Load balancing.** The proxy distributes incoming requests across multiple backend instances - round robin, least-connections, or consistent hashing depending on the algorithm configured - so no single backend gets overwhelmed while others sit idle.
+
+**Caching.** Static or slow-changing responses can be cached at the proxy layer and served directly without hitting a backend at all. Nginx's `proxy_cache` directives, for instance, can cache full responses keyed by URL and headers.
+
+**Compression.** The proxy can gzip or brotli-compress responses on the way out, so backend services don't each need to implement compression themselves.
+
+A minimal Nginx reverse proxy config doing several of these at once:
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name api.example.com;
+
+    ssl_certificate     /etc/ssl/certs/api.example.com.pem;
+    ssl_certificate_key /etc/ssl/private/api.example.com.key;
+
+    location / {
+        proxy_pass http://backend_pool;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        gzip on;
+    }
+}
+
+upstream backend_pool {
+    server 10.0.1.10:3000;
+    server 10.0.1.11:3000;
+    server 10.0.1.12:3000;
+}
+```
+
+`X-Real-IP` matters here specifically because the backend servers only ever see connections originating from the proxy's IP - without a header like this carrying the original client address forward, backend application code (logging, rate limiting, geolocation) would have no way to know the real client IP.
+
+<Callout>
+Envoy, increasingly common in service-mesh setups, is architecturally a reverse proxy too, but it's built for a different scale of problem than Nginx traditionally targets - fine-grained per-request observability, dynamic service discovery, and traffic shifting between service versions (canary releases, blue-green deploys) driven by a control plane rather than a static config file. The underlying concept - sit in front of servers, decide how to route and shape traffic to them - is identical; what changes is how dynamically that routing decision gets made.
+</Callout>
+
+## Both can exist in the same request path
+
+A single request can pass through a forward proxy on the client's network, then a CDN edge node, then a reverse proxy or load balancer in front of the actual application servers - multiple proxy layers, each representing a different side of a different hop. Recognizing which role a given proxy plays in the chain (client-side or server-side) is what actually matters, more than any specific product name.

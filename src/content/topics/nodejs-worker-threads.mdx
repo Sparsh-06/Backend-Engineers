@@ -14,6 +14,8 @@ CPU-heavy work is a different story. Image resizing, PDF generation, large JSON 
 
 Node gives you two ways out of this, and they solve different problems.
 
+<Visual id="cluster-vs-worker-threads" />
+
 ## Worker Threads
 
 Worker Threads, stable since Node 12, let you spin up additional JavaScript threads inside the same process. Each one gets its own V8 context and its own heap - they talk to the main thread by passing messages, not by sharing memory (with one exception, below).

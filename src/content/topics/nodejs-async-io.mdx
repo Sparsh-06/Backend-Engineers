@@ -71,6 +71,67 @@ doSomethingWith(data);
 
 The JavaScript thread was never blocked at any point in that sequence. It was doing other work the entire time the file was being read.
 
+Side by side, the two versions of the same file read differ by one keyword and a
+method name. What differs underneath is who owns the thread while the disk is
+busy:
+
+<CodeWalkthrough
+  title="Where the thread is released"
+  language="js"
+  code={`// Blocking: this thread does nothing else until the read returns
+  function handleSync(req, res) {
+    const data = fs.readFileSync("./report.json", "utf8");
+    res.end(data);
+  }
+
+  // Non-blocking: the thread goes back to the event loop mid-read
+  async function handleAsync(req, res) {
+    const data = await fs.promises.readFile("./report.json", "utf8");
+    res.end(data);
+  }
+
+  // Everything below shares that one thread
+  setInterval(() => metrics.flush(), 1000);
+  server.on("request", handleSync);`}
+  steps={[
+    {
+      lines: "2-5",
+      title: "The blocking version, read normally",
+      detail: "Three lines, no callbacks, and the value is right there on line 3. This is genuinely the easier code to read, which is most of why it keeps getting written.",
+    },
+    {
+      lines: "3",
+      title: "Line 3 is where everything stops",
+      detail: "readFileSync does not return until libuv has the full file contents. The call stack sits on this line for the whole read - a few milliseconds for a warm file, considerably longer for a cold one on a network filesystem.",
+    },
+    {
+      lines: "14-15",
+      title: "What is starved during that pause",
+      detail: "The metrics timer on line 14 cannot fire, and no other request can be picked up, because both need the same thread that line 3 is holding. With 50 requests in flight, the 50th waits for the other 49 reads to finish one after another.",
+    },
+    {
+      lines: "8-11",
+      title: "The same work, non-blocking",
+      detail: "Identical shape - the value still lands in data, the response is still sent on the next line. The difference is entirely in what happens between line 9 and line 10.",
+    },
+    {
+      lines: "9",
+      title: "Line 9 hands the read off and gives the thread back",
+      detail: "fs.promises.readFile asks libuv to start the read on its thread pool and immediately returns a pending promise. await suspends handleAsync at this point and returns control to the event loop, which is free to run anything else queued.",
+    },
+    {
+      lines: "14-15",
+      title: "What runs in the gap",
+      detail: "The metrics timer fires on schedule. Other requests get accepted and start their own reads. None of that is parallelism in the JavaScript sense - it is one thread staying busy instead of idling against a disk.",
+    },
+    {
+      lines: "9-10",
+      title: "Resuming after the read completes",
+      detail: "libuv reports the read done, the event loop picks up the queued continuation, and execution resumes on line 9 with data now bound. Line 10 then runs exactly as it would have in the sync version. Same result, same order, thread never held.",
+    },
+  ]}
+/>
+
 ## Where this goes wrong
 
 `fs.readFileSync()` inside a request handler is the most common mistake - it looks harmless on a dev machine with one user, and quietly becomes a production incident once real traffic shows up, because it blocks the exact thread every other request is also waiting on.

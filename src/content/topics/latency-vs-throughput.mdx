@@ -20,6 +20,67 @@ Add more checkout lanes and throughput goes up - more customers served per hour,
 
 The same thing happens in backend systems constantly. Batching requests together - waiting to accumulate ten database writes before sending them as one transaction - improves throughput (fewer round trips, more total operations per second) but hurts latency for the first request in the batch, which now has to wait for the other nine to show up before anything happens. Caching helps both, when it works, but adds latency on a cache miss while paying off in throughput on every subsequent hit.
 
+The relationship isn't a straight line either. Push concurrency up on a fixed
+set of servers and throughput climbs for a while, then flattens, then falls over
+entirely, while latency goes from barely moving to catastrophic:
+
+<Simulator
+  title="Push more concurrent load at a fixed server pool"
+  description="Illustrative numbers, not measured - the shape of the curve is the point, not the exact values."
+  label="Concurrent requests"
+  steps={[
+    {
+      value: "10",
+      readouts: [
+        { label: "p99 latency", value: "22ms", status: "good" },
+        { label: "Throughput", value: "450/s", status: "good" },
+        { label: "Queue depth", value: "0", status: "good" },
+      ],
+      note: "Well under capacity. Requests are served as fast as they arrive, nothing waits in line, and latency is essentially just the work itself.",
+    },
+    {
+      value: "50",
+      readouts: [
+        { label: "p99 latency", value: "35ms", status: "good" },
+        { label: "Throughput", value: "1,400/s", status: "good" },
+        { label: "Queue depth", value: "2", status: "good" },
+      ],
+      note: "Throughput is climbing nicely and latency has barely moved. This is the range you want to operate in - adding load here is close to free.",
+    },
+    {
+      value: "100",
+      readouts: [
+        { label: "p99 latency", value: "90ms", status: "warn" },
+        { label: "Throughput", value: "1,650/s", status: "good" },
+        { label: "Queue depth", value: "25", status: "warn" },
+      ],
+      note: "This is the knee. Throughput is near its ceiling, so extra load stops buying much - but requests now wait behind others, and latency has started climbing faster than load is.",
+    },
+    {
+      value: "200",
+      readouts: [
+        { label: "p99 latency", value: "380ms", status: "bad" },
+        { label: "Throughput", value: "1,500/s", status: "warn" },
+        { label: "Queue depth", value: "140", status: "bad" },
+      ],
+      note: "Past the knee. Throughput has actually gone down - the servers are spending real time on queueing and context switching instead of work - while latency is now four times worse.",
+    },
+    {
+      value: "400",
+      readouts: [
+        { label: "p99 latency", value: "2,100ms", status: "bad" },
+        { label: "Throughput", value: "600/s", status: "bad" },
+        { label: "Queue depth", value: "900+", status: "bad" },
+      ],
+      note: "Congestion collapse. Clients start timing out and retrying, which adds even more load, which makes it worse. Throughput is now a third of its peak while every user waits over two seconds.",
+    },
+  ]}
+/>
+
+The lesson in that curve: a system at 60% of its peak throughput is often a far
+better place to live than one at 100%, because the second one has no headroom
+left before latency falls off a cliff.
+
 <Callout>
 "Make it faster" is not a specific enough goal to act on. Faster for one request, or faster in total? The optimization that helps one can actively hurt the other - which is exactly why real performance work starts by naming which of the two actually matters for the problem at hand.
 </Callout>

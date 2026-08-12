@@ -1,0 +1,71 @@
+---
+title: "Authentication and security standards"
+description: "Learn the basics of signing people in, giving them the right access, and protecting common weak spots."
+keywords: ["JWT", "OAuth", "OIDC", "CORS", "CSRF", "authentication vs authorization", "how does oauth 2.0 work", "jwt structure explained", "login with google flow", "oidc vs oauth", "jwt vs session tokens", "how to revoke a jwt", "cors explained simply", "csrf attack example", "same origin policy", "bearer token authentication"]
+phase: "Phase 2"
+group: "protocols-and-apis"
+---
+
+## Authentication and authorization are not the same question
+
+Authentication answers "who are you" - proving identity, typically with a password, a token, or a biometric. Authorization answers "what are you allowed to do" - a completely separate question that only makes sense once identity is already established. A system can authenticate someone correctly and still be wrong about authorization: a logged-in user (authenticated) trying to delete another user's account (not authorized) is exactly this failure mode, and conflating the two in code - checking "is there a valid token" and treating that as equivalent to "is this action allowed" - is a common source of real access-control bugs.
+
+## JWTs: what's actually inside one
+
+A JWT (JSON Web Token) is three base64url-encoded segments joined by dots: `header.payload.signature`.
+
+```
+eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI0MiIsInJvbGUiOiJhZG1pbiJ9.4Ee8...
+```
+
+The header names the signing algorithm. The payload holds claims - arbitrary data like `sub` (subject, usually a user ID), `role`, `exp` (expiry timestamp). The signature is computed over the header and payload using a secret (HMAC) or private key (RSA/ECDSA), and it's what a server checks to confirm the token wasn't tampered with after issuance.
+
+<Callout>
+The payload is base64-encoded, not encrypted. Anyone holding a JWT can decode the payload and read every claim in it without knowing the signing secret - the signature only proves the claims weren't altered, it does not hide them. Putting sensitive data like a password or a full credit card number in a JWT payload is a real, recurring mistake, not a theoretical one.
+</Callout>
+
+JWTs are stateless: a server can verify one using only the signing secret, with no database lookup and no shared session store. That's the appeal, and it's also the trade-off. A session token stored server-side can be revoked instantly - delete the row, the session is dead. A JWT is valid until it expires, full stop, because there's no server-side record to delete. Revoking one before its `exp` claim requires extra infrastructure anyway - a blocklist of revoked token IDs checked on every request, which reintroduces the server-side lookup JWTs were meant to avoid, just for the revocation path specifically.
+
+## OAuth 2.0: delegated authorization, not authentication
+
+OAuth's actual purpose is letting one application access resources on another application's behalf, with the resource owner's permission - not proving who a user is. "Login with Google" is the flow most people have used without realizing it's OAuth, and it works roughly like this:
+
+1. Your app redirects the user to Google's authorization endpoint, with a `client_id` identifying your app and a `redirect_uri`
+2. The user logs into Google (if not already) and approves the permissions your app is requesting
+3. Google redirects back to your `redirect_uri` with a short-lived authorization code
+4. Your backend exchanges that code, plus a `client_secret`, for an access token - this step happens server-to-server, so the token never passes through the user's browser
+5. Your backend uses the access token to call Google's API on the user's behalf - fetching their profile, for instance
+
+Notice that step 5 only gives your app access to whatever Google resource the token scopes to (like "read basic profile info") - it doesn't inherently tell your app who the user is in any standardized way. That gap is exactly what OIDC fills.
+
+## OIDC: the identity layer on top
+
+OpenID Connect adds a standardized identity layer on top of OAuth's authorization mechanics. Alongside the access token, an OIDC flow also returns an **ID token** - a JWT specifically containing identity claims (`sub`, `email`, `name`) in a standardized shape. This is the actual mechanism "login with Google" uses to authenticate a user, not just authorize access to their data: OAuth handles the delegation flow, and OIDC's ID token is what tells your app who logged in.
+
+## CORS: a browser-enforced boundary, not a server security feature
+
+The same-origin policy blocks a script running on `evil.com` from reading responses from `bank.com` by default. CORS is the mechanism that lets a server deliberately relax that restriction for specific origins, via response headers:
+
+```
+Access-Control-Allow-Origin: https://trusted-app.com
+Access-Control-Allow-Methods: GET, POST
+Access-Control-Allow-Credentials: true
+```
+
+This is enforced entirely by the browser, on the response - a non-browser client (`curl`, a server-to-server call) ignores CORS headers completely, because there's no same-origin policy to enforce outside a browser context. CORS protects users from a malicious website's JavaScript reading data from a site they're logged into; it does nothing to protect an API from a direct, non-browser request.
+
+## CSRF: exploiting the browser's own cookie behavior
+
+A CSRF (Cross-Site Request Forgery) attack works because browsers automatically attach cookies to requests regardless of which site's page triggered the request. If a bank's `POST /transfer` endpoint relies solely on a session cookie for authentication, a malicious page hosted anywhere can embed a form that auto-submits to that endpoint:
+
+```html
+<form action="https://bank.com/transfer" method="POST" id="f">
+  <input type="hidden" name="to" value="attacker-account" />
+  <input type="hidden" name="amount" value="5000" />
+</form>
+<script>document.getElementById("f").submit();</script>
+```
+
+If the victim is logged into `bank.com` in the same browser, the cookie rides along automatically, and the bank's server has no way to tell this request apart from a legitimate one triggered by the user themselves - both arrive with a valid session cookie attached.
+
+The standard protection is a CSRF token: a random value the server embeds in legitimate forms and checks on submission, one that an attacker's page on a different origin has no way to read or reproduce, since it isn't stored in a cookie the browser would auto-attach. Modern browsers also help here directly - the `SameSite` cookie attribute (`Strict` or `Lax`) tells the browser not to send a cookie along with cross-site requests at all, closing off a large share of CSRF attacks without any application-level token logic.

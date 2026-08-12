@@ -1,0 +1,78 @@
+---
+title: "REST and OpenAPI"
+description: "Learn to make APIs that are predictable, clear to use, and safe to call more than once."
+keywords: ["REST", "OpenAPI", "idempotency", "what makes an api restful", "REST vs RESTful in name only", "PUT vs PATCH vs POST", "OpenAPI Swagger explained", "contract-first API design", "resource oriented URLs", "HTTP verbs REST", "statelessness REST", "API codegen from OpenAPI", "swagger.yaml", "REST API design best practices", "HATEOAS"]
+phase: "Phase 2"
+group: "protocols-and-apis"
+---
+
+## What "RESTful" is actually supposed to mean
+
+REST (Representational State Transfer) is a set of architectural constraints, not a technology. The two that matter most day to day:
+
+**Resource-oriented URLs.** A URL identifies a *thing* (a resource), not an *action*. `/users/42` is a resource. `/getUser?id=42` or `/api/deleteUserById` describes an action baked into the URL - that's RPC dressed up as REST, and it's extremely common in real codebases despite not being what REST actually prescribes.
+
+<Visual id="resource-urls-vs-rpc" />
+
+**Statelessness.** Every request carries everything the server needs to process it - the server holds no memory of a client's prior requests between calls. This is the same idea covered in the statelessness topic: it's what lets any server instance handle any request, which is what makes horizontal scaling straightforward.
+
+A third constraint, **uniform interface via HTTP verbs**, means the verb carries the meaning, and the URL just names the resource:
+
+| Verb | Meaning | Idempotent? |
+|---|---|---|
+| `GET` | Read a resource | Yes |
+| `POST` | Create a new resource, or trigger a non-idempotent action | No |
+| `PUT` | Replace a resource entirely | Yes |
+| `PATCH` | Partially update a resource | Not guaranteed |
+| `DELETE` | Remove a resource | Yes |
+
+## PUT vs PATCH vs POST, where people actually get it wrong
+
+`PUT /users/42` with a body of `{ "name": "Alex" }` should mean "the entire user resource is now exactly this" - if the user previously had an `email` field and it's missing from the body, a strict PUT implementation removes it, because PUT means full replacement. Sending the same PUT request twice produces the same end state both times - that's what makes it idempotent.
+
+`PATCH /users/42` with `{ "name": "Alex" }` means "update only the `name` field, leave everything else alone." This is the verb most APIs actually want when they say "update," but a huge number of real-world APIs use `PUT` for partial updates out of habit, which technically breaks the full-replacement contract PUT is supposed to guarantee.
+
+`POST /users` (note: no ID in the URL) creates a new resource and is not idempotent by default - calling it twice with the same body creates two separate users. This is the specific behavior the idempotency topic covers in more depth, including how an `Idempotency-Key` header lets clients safely retry a `POST` without risking duplicate creation.
+
+<Callout>
+A URL like `POST /users/42/activate` is common and not actually a REST violation, despite looking like an action tacked onto a resource. Not every operation maps cleanly onto CRUD-over-a-resource - "activate this user" is a real state transition, not a field update, and modeling it as its own sub-resource action (or as a `PATCH` changing a `status` field) are both legitimate, debated choices. REST purism that insists everything must be strict CRUD tends to produce awkward APIs; the constraints exist to make APIs predictable, not to eliminate judgment calls.
+</Callout>
+
+## What OpenAPI is actually for
+
+An OpenAPI spec (formerly "Swagger") is a machine-readable YAML or JSON document describing every endpoint, request shape, response shape, and status code an API returns. Treating it as "just documentation" undersells what it enables:
+
+- **Codegen** - tools like `openapi-generator` or `orval` generate typed client SDKs directly from the spec, so a frontend team gets a fully typed API client without hand-writing fetch calls or maintaining types that drift from reality.
+- **Contract-first development** - teams write the OpenAPI spec before implementation, agree on it, then build the frontend and backend in parallel against the same contract, instead of the frontend waiting on a working backend to know the exact response shape.
+- **Request/response validation** - middleware can validate incoming requests and outgoing responses against the spec automatically, catching a backend change that silently breaks the documented contract.
+- **Interactive documentation** - tools like Swagger UI or Redoc render the spec as a browsable, testable interface, but this is a side effect of having a machine-readable contract, not the main reason to write one.
+
+A minimal path definition looks like:
+
+```yaml
+paths:
+  /users/{id}:
+    get:
+      summary: Get a user by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "404":
+          description: User not found
+```
+
+Nothing about that YAML is documentation-only - it's a machine-checkable contract that codegen tools, validators, and mock servers can all consume the same way.
+
+## REST-in-name-only, the common failure mode
+
+An API that uses only `POST` for everything, tunnels every operation through query parameters or a single catch-all endpoint, and returns `200 OK` for both successes and errors with an `{ "error": true }` field buried in the body is not RESTful, even if the team calls it a REST API. It works, plenty of production systems look exactly like this, but it forfeits the predictability - resource-shaped URLs, correct status codes, verb semantics - that makes REST useful as a shared convention across teams and tools in the first place.

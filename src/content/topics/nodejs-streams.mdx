@@ -66,6 +66,68 @@ Picture pouring water into a bucket that has a small hole in the bottom. Pour fa
 This protection only exists if you use `.pipe()` or otherwise respect the return value of `.write()`. Call `.read()` manually and ignore backpressure signals, and you've opted back into the exact unbounded memory growth streams were built to prevent.
 </Callout>
 
+What "grows without bound" means is easier to see with numbers on it. Picture a
+file being read off a fast local disk and written to a client on a slow
+connection, with the backpressure signal ignored - every chunk the reader
+produces faster than the writer can send has to be held somewhere:
+
+<Simulator
+  title="A fast producer feeding a 20 MB/s consumer"
+  description="Illustrative numbers, not measured. The consumer drains at a fixed 20 MB/s and the buffer figures are what has accumulated after one minute of transfer with backpressure ignored."
+  label="Producer rate"
+  steps={[
+    {
+      value: "5 MB/s",
+      readouts: [
+        { label: "Buffered in memory", value: "64 KB", status: "good" },
+        { label: "Consumer lag", value: "0s", status: "good" },
+        { label: "Status", value: "Flowing", status: "good" },
+      ],
+      note: "The consumer is faster than the producer, so nothing accumulates. Buffered memory sits at roughly one chunk - the default highWaterMark for a byte stream is 64 KB, and it never fills.",
+    },
+    {
+      value: "20 MB/s",
+      readouts: [
+        { label: "Buffered in memory", value: "1 MB", status: "good" },
+        { label: "Consumer lag", value: "0.05s", status: "good" },
+        { label: "Status", value: "Balanced", status: "good" },
+      ],
+      note: "Rates are matched. The buffer holds a small amount to smooth over jitter, but it is not trending anywhere. This is the state a healthy pipe spends its time in.",
+    },
+    {
+      value: "30 MB/s",
+      readouts: [
+        { label: "Buffered in memory", value: "600 MB", status: "warn" },
+        { label: "Consumer lag", value: "30s", status: "warn" },
+        { label: "Status", value: "Accumulating", status: "warn" },
+      ],
+      note: "Only 10 MB/s of excess, and it still puts 600 MB in memory after a minute. Nothing has failed yet, which is what makes this the dangerous range - it looks fine in a short test and only shows up on a long transfer.",
+    },
+    {
+      value: "60 MB/s",
+      readouts: [
+        { label: "Buffered in memory", value: "2.4 GB", status: "bad" },
+        { label: "Consumer lag", value: "2m", status: "bad" },
+        { label: "Status", value: "Memory pressure", status: "bad" },
+      ],
+      note: "The buffer now holds more than most containers are given in total. Chunks are Buffers, so this lives in the process RSS rather than the V8 heap - meaning the container memory limit is what you hit first, not a heap error.",
+    },
+    {
+      value: "100 MB/s",
+      readouts: [
+        { label: "Buffered in memory", value: "4.8 GB", status: "bad" },
+        { label: "Consumer lag", value: "4m", status: "bad" },
+        { label: "Status", value: "OOM killed", status: "bad" },
+      ],
+      note: "The process is killed by the OOM killer partway through, taking every other in-flight request with it. Note what never happened at any point on this slider: an error, a warning, a slow log line. Ignoring backpressure fails silently right up until the process disappears.",
+    },
+  ]}
+/>
+
+With `.pipe()`, none of the rows past the second one exist - the readable pauses
+the moment the writable's buffer is full, so the producer rate is capped by the
+consumer rather than racing ahead of it.
+
 ## Buffers, underneath the streams
 
 Before there were streams, there was `Buffer` - Node's raw binary container, living outside V8's garbage-collected heap. That's what makes it efficient for image bytes, audio frames, network packets: raw memory, not JS objects with all their overhead.

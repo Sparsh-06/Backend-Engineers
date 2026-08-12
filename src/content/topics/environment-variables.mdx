@@ -42,6 +42,69 @@ Environment variables aren't only for secrets - they're for anything that legiti
 
 The underlying principle (formalized as one of the points in the well-known "twelve-factor app" methodology) is: the code should be identical everywhere it runs. What changes between environments should live entirely in configuration, never in a branch of code that checks "if we're in production, do X."
 
+Reaching for `process.env.SOMETHING` at the point of use means a typo or a
+missing variable surfaces whenever that line first executes - which might be a
+request handler nobody hits until Friday night. Reading everything once at
+startup moves that failure to boot time, where a deploy fails loudly instead:
+
+<CodeWalkthrough
+  title="Loading config once, and failing fast"
+  language="js"
+  code={`// config.js - imported by the entry file, before the server listens
+
+  function required(name) {
+    const value = process.env[name];
+    if (value === undefined || value === "") {
+      throw new Error("Missing required env var: " + name);
+    }
+    return value;
+  }
+
+  export const config = {
+    databaseUrl: required("DATABASE_URL"),
+    jwtSecret: required("JWT_SECRET"),
+    port: Number(process.env.PORT ?? 3000),
+    logLevel: process.env.LOG_LEVEL ?? "info",
+    enableSignups: process.env.ENABLE_SIGNUPS === "true",
+  };`}
+  steps={[
+    {
+      lines: "1",
+      title: "Where this file sits in the startup order",
+      detail: "The object on line 11 is built the moment this module is first imported, so everything below runs before the server binds a port. That timing is the whole point - it is what turns a config mistake into a failed startup instead of a failed request.",
+    },
+    {
+      lines: "3-9",
+      title: "One helper that asserts instead of returning undefined",
+      detail: "process.env[name] returns undefined for anything that was never set. Reading it through this helper means the absence is checked exactly once, in one place, rather than at every call site that hopes the value is there.",
+    },
+    {
+      lines: "5-7",
+      title: "Empty string counts as missing",
+      detail: "A line like DATABASE_URL= in a .env file sets the variable to an empty string, not undefined, so a check for undefined alone would let it through. Every value in process.env is a string, and the empty one is almost never what anybody meant.",
+    },
+    {
+      lines: "12-13",
+      title: "The two values that must exist",
+      detail: "If DATABASE_URL is missing, the process throws during import and exits non-zero. Your deployment tooling sees a container that failed to start and can hold the previous version, which is a much better outcome than a healthy-looking process that throws on its first database call.",
+    },
+    {
+      lines: "14",
+      title: "Numbers need converting, always",
+      detail: "PORT arrives as the string '3000', and passing a string where a number is expected fails in confusing ways. Number() here plus ?? for the default gives one place where the port is known to be a number. Note that ?? only falls back on null or undefined, so PORT=0 stays 0.",
+    },
+    {
+      lines: "15-16",
+      title: "Defaults and booleans",
+      detail: "Optional values get a sensible default rather than an assertion. Booleans need the explicit comparison on line 16 because every non-empty string is truthy - Boolean(process.env.ENABLE_SIGNUPS) would be true for the literal string 'false'.",
+    },
+  ]}
+/>
+
+The rest of the codebase imports `config` and never touches `process.env` again.
+That also makes the full set of variables the app needs readable in one file,
+which is the list you want when setting up a new environment.
+
 ## What still shouldn't go in an environment variable
 
 Not everything belongs here. Environment variables are plain text, readable by anything with access to the process, and not encrypted at rest by default in most setups. For genuinely sensitive secrets at any real scale - production database credentials, signing keys - dedicated secrets managers (AWS Secrets Manager, HashiCorp Vault, or a cloud provider's equivalent) exist specifically because "just an env var" doesn't give you rotation, access auditing, or fine-grained permissions.

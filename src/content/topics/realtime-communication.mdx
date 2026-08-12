@@ -1,0 +1,87 @@
+---
+title: "Real-time communication"
+description: "Choose the right way to send live updates, such as chat messages or delivery status."
+keywords: ["WebSockets", "SSE", "long polling", "server sent events explained", "websockets vs sse vs long polling", "when to use websockets", "how does long polling work", "sse under the hood", "text/event-stream", "bidirectional vs one directional realtime", "websocket handshake", "live scores implementation", "chat app realtime protocol", "sse reconnection", "realtime backend architecture"]
+phase: "Phase 2"
+group: "protocols-and-apis"
+---
+
+## Three ways to fake (or achieve) "real-time"
+
+Before WebSockets were widely supported, servers couldn't push data to a client at all - HTTP is request/response, and a server can only reply to a request it already received. Three approaches exist to get around that, each with real trade-offs, not just historical artifacts to skip past.
+
+## Long polling: the original workaround
+
+The client sends a request; the server holds it open without responding until it actually has new data (or a timeout is hit), then responds, and the client immediately sends another request. From the outside it looks like a live connection - in reality it's a rapid sequence of ordinary HTTP requests, each one just deliberately delayed on the server side.
+
+```js
+async function poll() {
+  const res = await fetch("/updates?since=" + lastEventId);
+  const data = await res.json();
+  handleUpdate(data);
+  poll(); // immediately open the next one
+}
+```
+
+This works everywhere plain HTTP works and needs no special protocol support, but it pays a full HTTP request/response cycle (headers, and a new TCP+TLS handshake unless keep-alive is in play) for every single update, and it doesn't give the client any way to push data back to the server on the same connection - it's fundamentally still one-directional per request.
+
+## Server-Sent Events: simpler than it sounds
+
+SSE is a long-lived HTTP response with the content type `text/event-stream`. The server opens the response and never closes it, writing new events onto the same connection as they happen:
+
+```js
+app.get("/events", (req, res) => {
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+  });
+
+  const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+  const interval = setInterval(() => send({ score: getLatestScore() }), 1000);
+
+  req.on("close", () => clearInterval(interval));
+});
+```
+
+That's the entire server-side mechanism - no special protocol, no upgrade handshake, just an HTTP response that stays open and gets written to over time. The client side is equally plain:
+
+```js
+const source = new EventSource("/events");
+source.onmessage = (e) => console.log(JSON.parse(e.data));
+```
+
+`EventSource` also handles automatic reconnection on disconnect and can resume from the last received event via a `Last-Event-ID` header, without any code for that on the client. SSE is strictly server-to-client - there's no channel for the client to send data back over the same connection, it would need a separate normal request for that.
+
+## WebSockets: true bidirectional
+
+WebSockets start as a normal HTTP request that asks to be upgraded:
+
+```
+GET /chat HTTP/1.1
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
+```
+
+The server responds `101 Switching Protocols`, and from that point on the same TCP connection carries the WebSocket framing protocol instead of HTTP - a persistent, full-duplex connection where either side can send a message at any time, independent of the other.
+
+```js
+const ws = new WebSocket("wss://example.com/chat");
+ws.onmessage = (e) => console.log(e.data);
+ws.send(JSON.stringify({ type: "message", text: "hi" }));
+```
+
+## Picking the right one
+
+SSE fits anything one-directional where the server has updates and the client just needs to receive them - live sports scores, a stock ticker, a progress bar for a long-running job, notification feeds. It's genuinely simpler to build and operate than WebSockets: it's just HTTP, so it works through existing proxies and load balancers without special configuration, and browsers handle reconnection for free.
+
+WebSockets fit genuinely bidirectional cases where the client needs to send data as often as it receives it, with low latency in both directions - chat applications, multiplayer games, collaborative editing. That bidirectionality is the deciding factor, not "which one feels more real-time" - a live score feed gains nothing from WebSockets' extra complexity if the client never needs to send anything back over that channel.
+
+<Callout>
+A common mistake is reaching for WebSockets by default because they sound more "real-time," then building a chat-like bidirectional protocol on top when the actual traffic is 95% server-to-client. SSE plus a plain REST endpoint for the occasional client-to-server action (like "mark notification read") is often simpler to operate and debug than a WebSocket server handling the same split traffic pattern - fewer stateful connections to load-balance, and ordinary HTTP infrastructure works without modification.
+</Callout>
+
+## Load balancing and infrastructure implications
+
+Long polling and SSE ride on ordinary HTTP and work fine behind standard load balancers and reverse proxies with no special handling. WebSockets need infrastructure that supports the `Upgrade` header and can hold a persistent connection open per client - this affects load balancer configuration (sticky sessions or connection-aware routing matter more), and horizontally scaling a WebSocket server usually needs a shared pub/sub layer (Redis pub/sub, for instance) so a message published from one server instance reaches a client connected to a different instance.

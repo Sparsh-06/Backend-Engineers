@@ -3,15 +3,22 @@ import Link from "next/link";
 import Navbar from "@/modules/components/common/navbar";
 import { fieldNotes } from "@/data/field-notes";
 
+const siteName = "Backend Engineer";
+const description =
+  "Short, curated takes on real engineering blog posts, postmortems, and incidents worth understanding - reactions, not summaries.";
+
 export const metadata: Metadata = {
   title: "Field Notes",
-  description:
-    "Short, curated takes on real engineering blog posts, postmortems, and incidents worth understanding - reactions, not summaries.",
+  description,
   keywords: [
     "backend engineering field notes",
     "engineering postmortem analysis",
     "system design blog reactions",
     "backend engineering commentary",
+    "engineering incident writeups",
+    "backend engineering blog",
+    "postmortem breakdown",
+    "system design case studies",
   ],
   alternates: { canonical: "/blog" },
   authors: [{ name: "Sparsh Sharma" }],
@@ -43,9 +50,35 @@ export const metadata: Metadata = {
   },
 };
 
+// Only emitted once real notes exist - structured data claiming a Blog with
+// items when the page is honestly empty would be inaccurate markup.
+const fieldNotesSchema =
+  fieldNotes.length > 0
+    ? {
+        "@context": "https://schema.org",
+        "@type": "Blog",
+        name: "Field Notes",
+        description,
+        url: "https://www.backendengineer.in/blog",
+        publisher: { "@type": "Organization", name: siteName },
+        blogPost: fieldNotes.map((note) => ({
+          "@type": "BlogPosting",
+          headline: note.title,
+          url: note.sourceUrl,
+          datePublished: note.date,
+        })),
+      }
+    : null;
+
 export default function BlogPage() {
   return (
     <main className="min-h-screen overflow-hidden">
+      {fieldNotesSchema && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(fieldNotesSchema) }}
+        />
+      )}
       <Navbar />
       <section className="px-5 pb-16 pt-36 sm:px-8 lg:px-12">
         <div className="mx-auto max-w-4xl">

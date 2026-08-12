@@ -71,6 +71,63 @@ An LRU cache with a real size limit, or TTL-based eviction, fixes this - the bug
 Global state is the slowest version of this same mistake. A global array collecting logs or request history with no trimming logic will eventually show up as a memory graph, but it can take days of production traffic before anyone notices - long enough that nobody connects the growth back to the change that caused it.
 </Callout>
 
+The reason these are hard to catch is that the early hours look completely
+normal. Here is the same process - the unbounded cache from above, running under
+steady traffic with a 2 GB old-space limit - sampled at points across a day:
+
+<Simulator
+  title="A leaking process, watched over a day"
+  description="Illustrative numbers, not measured, from a process started with --max-old-space-size=2048. The shape is what matters: heap climbing steadily while GC quietly gets more expensive."
+  label="Elapsed runtime"
+  steps={[
+    {
+      value: "1 min",
+      readouts: [
+        { label: "Heap used", value: "120 MB", status: "good" },
+        { label: "Major GC pause", value: "12 ms", status: "good" },
+        { label: "Status", value: "Healthy", status: "good" },
+      ],
+      note: "Nothing to see. Heap used rises and falls with traffic, and every major collection returns it close to where it started. A leak and a healthy process are indistinguishable at this range, which is why one heap snapshot proves nothing.",
+    },
+    {
+      value: "1 h",
+      readouts: [
+        { label: "Heap used", value: "380 MB", status: "good" },
+        { label: "Major GC pause", value: "28 ms", status: "good" },
+        { label: "Status", value: "Drifting up", status: "warn" },
+      ],
+      note: "The sawtooth is still there, but each trough is higher than the last - collections are reclaiming the request-scoped garbage and leaving the cached entries behind. This is the signal, and it is only visible as a trend across samples.",
+    },
+    {
+      value: "6 h",
+      readouts: [
+        { label: "Heap used", value: "1.1 GB", status: "warn" },
+        { label: "Major GC pause", value: "70 ms", status: "warn" },
+        { label: "Status", value: "Degrading", status: "warn" },
+      ],
+      note: "Pauses have grown because marking has to walk every reachable object, and the reachable set is now most of the heap. Nothing is broken, but p99 latency has picked up a wobble that profiling the request path will not explain.",
+    },
+    {
+      value: "12 h",
+      readouts: [
+        { label: "Heap used", value: "1.7 GB", status: "bad" },
+        { label: "Major GC pause", value: "180 ms", status: "bad" },
+        { label: "Status", value: "GC thrashing", status: "bad" },
+      ],
+      note: "Close enough to the limit that V8 starts collecting far more aggressively, and each attempt frees almost nothing because almost everything is genuinely still referenced. The process is now spending a real fraction of its CPU on garbage collection.",
+    },
+    {
+      value: "24 h",
+      readouts: [
+        { label: "Heap used", value: "2.0 GB", status: "bad" },
+        { label: "Major GC pause", value: "Continuous", status: "bad" },
+        { label: "Status", value: "Out of memory", status: "bad" },
+      ],
+      note: "V8 gives up with 'JavaScript heap out of memory' and the process dies. A restart clears it and the graph starts over from 120 MB, which is exactly why leaks like this can survive months of deploys without ever being diagnosed.",
+    },
+  ]}
+/>
+
 ## Actually finding a leak
 
 Watch the trend, not a single snapshot:

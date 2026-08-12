@@ -1,0 +1,160 @@
+---
+title: "GraphQL"
+description: "Ask an API for exactly the data you need, while avoiding slow or overly expensive requests."
+keywords: ["GraphQL", "resolvers", "N+1", "graphql n+1 problem explained", "dataloader batching", "graphql vs rest when to use", "graphql resolver example", "graphql over fetching under fetching", "graphql schema", "graphql query vs mutation", "apollo server", "graphql round trips", "graphql caching problem", "graphql performance", "batch loading graphql"]
+phase: "Phase 2"
+group: "protocols-and-apis"
+---
+
+## The core pitch: ask for exactly what you need
+
+A typical REST screen - say, a user profile page showing name, recent posts, and follower count - often needs multiple round trips: `GET /users/42`, then `GET /users/42/posts`, then `GET /users/42/followers`. Or a single bloated endpoint that returns far more than the screen needs, just to avoid the extra round trips (over-fetching).
+
+GraphQL replaces that with one endpoint and one query describing exactly the shape of data wanted:
+
+```graphql
+query {
+  user(id: 42) {
+    name
+    posts(limit: 5) {
+      title
+    }
+    followerCount
+  }
+}
+```
+
+One HTTP request (almost always `POST /graphql`), one response, shaped exactly like the query - no unused fields, no follow-up requests for related data. That's the whole pitch: the client controls the shape of the response instead of the server dictating it through a fixed set of endpoints.
+
+## Resolvers: a function per field
+
+Every field in a GraphQL schema is backed by a **resolver** - a function that knows how to fetch that specific piece of data. For the query above, the schema might define:
+
+```js
+const resolvers = {
+  Query: {
+    user: (parent, args) => db.users.findById(args.id),
+  },
+  User: {
+    posts: (user, args) => db.posts.findByAuthorId(user.id, args.limit),
+    followerCount: (user) => db.follows.countByUserId(user.id),
+  },
+};
+```
+
+GraphQL executes resolvers top-down: first `Query.user` runs and returns the user object, then `User.posts` and `User.followerCount` run, each receiving that user object as their `parent` argument. Each field resolves independently - which is exactly where the well-known problem shows up.
+
+## The N+1 problem, concretely
+
+Say the query asks for a list of 20 users, each with their `postCount`:
+
+```graphql
+query {
+  users(limit: 20) {
+    name
+    postCount
+  }
+}
+```
+
+If `User.postCount`'s resolver is written naively -
+
+```js
+User: {
+  postCount: (user) => db.posts.count({ authorId: user.id }), // one query per user
+}
+```
+
+- GraphQL runs this resolver once per user in the list. One query fetches the 20 users (`1`), then 20 separate queries run to get each user's post count (`N`), for 21 total database round trips to answer what looks like a single request. This scales linearly with list size and is the single most common GraphQL performance bug in production - it's invisible in a query that returns 3 users and crippling in one that returns 300.
+
+**DataLoader** (or equivalent batching utilities in other languages) fixes this by deferring and batching resolver calls that happen within the same tick:
+
+```js
+const postCountLoader = new DataLoader(async (userIds) => {
+  const counts = await db.posts.countByAuthorIds(userIds); // one query, all IDs
+  return userIds.map((id) => counts[id] ?? 0);
+});
+
+User: {
+  postCount: (user) => postCountLoader.load(user.id),
+}
+```
+
+Instead of firing a query the moment each resolver runs, DataLoader collects every `.load()` call issued during the same execution tick, then issues a single batched query with all the collected IDs once the tick ends. Same 20 users, one batched follow-up query instead of 20 - 2 total round trips instead of 21.
+
+Both versions are worth reading with the query count written out next to them,
+because the two resolvers look almost identical and the difference in database
+load is an order of magnitude:
+
+<CodeWalkthrough
+  title="Counting the queries, naive versus batched"
+  language="js"
+  code={`// Naive - one resolver call per user, each firing its own query
+  const resolvers = {
+    Query: {
+      users: (_, args) => db.users.findAll(args.limit),
+    },
+    User: {
+      postCount: (user) => db.posts.count({ authorId: user.id }),
+    },
+  };
+
+  // users(limit: 20) ->
+  //   1 query for the user list
+  //   + 20 queries, one per user, for postCount
+  //   = 21 round trips
+
+  // Batched - the loader defers each .load(), collects ids, queries once
+  const postCountLoader = new DataLoader(async (userIds) => {
+    const rows = await db.posts.countByAuthorIds(userIds);
+    return userIds.map((id) => rows[id] ?? 0);
+  });
+
+  // ...and User.postCount becomes:
+  postCount: (user) => postCountLoader.load(user.id),
+
+  // users(limit: 20) ->
+  //   1 query for the user list
+  //   + 1 batched query covering all 20 ids
+  //   = 2 round trips`}
+  steps={[
+    {
+      lines: "3-5",
+      title: "The list resolver runs once",
+      detail: "Query.users is called a single time and returns 20 user rows. That is query number one, and it is the only part of this that behaves the way the query text suggests it should.",
+    },
+    {
+      lines: "6-8",
+      title: "The field resolver runs once per user",
+      detail: "GraphQL resolves fields per object, so User.postCount is invoked 20 separate times, once with each user as its parent. Each invocation issues its own db.posts.count - nothing in the resolver can see that it is one of twenty.",
+    },
+    {
+      lines: "11-14",
+      title: "21 round trips for one request",
+      detail: "1 + N, where N is however many users came back. Ask for 20 and it is 21 queries. Ask for 300 and it is 301, from a query document that did not change shape at all. This is why the bug hides in development, where the seed data has four users in it.",
+    },
+    {
+      lines: "17-20",
+      title: "The batch function takes ids, not an id",
+      detail: "DataLoader calls this once with an array of every id collected during the tick, and requires an array back of the same length, in the same order. Line 19 maps ids to results in order for exactly that reason - returning the raw rows object would break the mapping.",
+    },
+    {
+      lines: "23",
+      title: "The resolver stops querying and starts loading",
+      detail: "Still one call per user, still written in isolation, still returning a promise the way the naive version did. The difference is that .load() only records the id and defers - no database call happens at this point.",
+    },
+    {
+      lines: "25-28",
+      title: "2 round trips, same result",
+      detail: "Once the tick ends, DataLoader fires the batch function with all 20 ids at once and resolves each pending promise from the result. The response the client gets is byte-for-byte identical to the naive version's - the only thing that changed is what the database was asked to do.",
+    },
+  ]}
+/>
+
+<Callout>
+The N+1 problem isn't a GraphQL-specific bug - it's the same pattern as calling a query inside a loop in any ORM. GraphQL just makes it far easier to introduce by accident, because resolvers are written in isolation, one field at a time, with no visibility into how many times a parent object's resolver is about to be called. A resolver that looks completely correct on its own becomes a performance problem purely because of how many times GraphQL happens to invoke it for a given query.
+</Callout>
+
+## When REST is still the better choice
+
+GraphQL isn't a strict upgrade over REST, despite its popularity. REST tends to win when: HTTP caching matters and you want to lean on CDN/browser caching by URL (GraphQL's single `POST /graphql` endpoint makes that kind of caching much harder, since the URL no longer identifies what's being requested); the API surface is small and stable enough that over-fetching isn't a real problem; file uploads or binary payloads are common (REST handles these natively, GraphQL needs workarounds); or the team doesn't want to take on the operational cost of query complexity limits, depth limiting, and resolver-level authorization checks that GraphQL APIs need to stay safe from expensive or malicious queries. GraphQL earns its complexity when clients genuinely have very different data needs per screen - a mobile app and a web dashboard hitting the same API - which is the scenario it was originally built for at Facebook.

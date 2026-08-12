@@ -1,0 +1,63 @@
+---
+title: "gRPC and Protocol Buffers"
+description: "A faster way for services to talk to each other using a clear shared format."
+keywords: ["gRPC", "protobuf", "streaming", "protocol buffers explained", "grpc vs rest performance", "grpc call types explained", "bidirectional streaming grpc", "why cant browsers call grpc directly", "protobuf binary serialization", "grpc unary call", "grpc-web", "service to service communication", "grpc http/2", ".proto file example", "grpc use cases"]
+phase: "Phase 2"
+group: "protocols-and-apis"
+---
+
+## Protobuf: a schema, then binary
+
+Protocol Buffers (Protobuf) is a binary serialization format defined against a strict schema written in a `.proto` file:
+
+```protobuf
+message User {
+  int32 id = 1;
+  string name = 2;
+  string email = 3;
+}
+```
+
+Each field gets a number (the `= 1`, `= 2`), which is what actually gets written on the wire - not the field name. A serialized `User` message doesn't contain the strings `"id"` or `"name"` anywhere; it contains field number 1 tagged with a type, followed by its value, then field number 2, and so on. That's the core reason Protobuf payloads are smaller than the equivalent JSON: JSON re-sends every key name as a string on every single message, while Protobuf sends a small integer tag instead, and the schema (compiled once, shared by both sides) is what maps that tag back to a field name at deserialization time.
+
+This has real consequences. A JSON payload with keys like `"id"`, `"name"`, `"email"` spends dozens of bytes just on the keys, every single message. Protobuf spends a few bytes on tags and the rest on actual data - typically 3-10x smaller on the wire for the same logical data, and faster to parse, since there's no string parsing or key lookup involved, just reading typed values off fixed-format binary.
+
+<Visual id="json-vs-protobuf-wire" />
+
+The trade-off is that Protobuf messages aren't human-readable off the wire and require the `.proto` schema to decode - you can't `curl` a gRPC endpoint and eyeball the response the way you can with JSON over REST.
+
+## gRPC: RPC semantics over HTTP/2, with Protobuf as the default payload
+
+gRPC is a remote procedure call framework - instead of thinking in terms of resources and HTTP verbs like REST, a `.proto` file defines services and methods directly:
+
+```protobuf
+service UserService {
+  rpc GetUser (GetUserRequest) returns (User);
+}
+```
+
+The client calls `userService.getUser(request)` and it looks and feels like a local function call, even though it's a network request under the hood. gRPC runs on HTTP/2, which is what makes its streaming call types possible - it needs HTTP/2's multiplexed, long-lived streams, not HTTP/1.1's one-request-per-round-trip model.
+
+## The four call types
+
+**Unary** - one request, one response. The default, equivalent to a normal REST call: `rpc GetUser(GetUserRequest) returns (User)`.
+
+**Server streaming** - one request, a stream of responses. Real use case: subscribing to live stock price updates, where the client sends one request and the server keeps pushing new values as they change, over the same call.
+
+**Client streaming** - a stream of requests, one final response. Real use case: a client uploading telemetry data in chunks (sensor readings, log lines) and getting back a single summary or acknowledgment once the stream closes.
+
+**Bidirectional streaming** - both sides stream independently, at their own pace, over the same connection. Real use case: a live chat backend, or a real-time collaborative editing service, where either side can send updates at any time without waiting for the other.
+
+## Why gRPC mostly stays behind the scenes
+
+gRPC is overwhelmingly a service-to-service tool, not something exposed directly to a browser client. Two concrete reasons: browsers don't give JavaScript low-level control over HTTP/2 frames, which gRPC's wire format (length-prefixed Protobuf messages inside HTTP/2 data frames, with trailing headers for status) depends on - there's no browser API that exposes what gRPC needs. And gRPC's binary payloads and streaming semantics don't map cleanly onto `fetch()` or `XMLHttpRequest`, which were built around REST-shaped request/response semantics.
+
+**gRPC-Web** exists as a workaround - a JavaScript-compatible subset that runs through a proxy (like Envoy) translating between gRPC-Web and real gRPC - but it's an add-on, not native support. In practice, most systems use gRPC for internal service-to-service calls (where both ends control their networking stack and speed matters) and REST or GraphQL for anything a browser talks to directly.
+
+<Callout>
+gRPC's speed advantage over REST+JSON is real but often overstated for typical CRUD traffic - the difference matters most under high request volume or tight latency budgets, like a payments service making thousands of internal calls per second. For a handful of requests per user session, the serialization format is rarely the bottleneck; the network round trip and database query dominate either way. gRPC earns its complexity in high-throughput internal meshes, not by default everywhere.
+</Callout>
+
+## What this looks like in practice
+
+A typical microservices architecture might use gRPC between internal services (order service calling inventory service calling payment service) where every millisecond and byte adds up across thousands of internal calls per second, while the public-facing API gateway in front of all of it still speaks REST or GraphQL to browser and mobile clients - translating from public HTTP/JSON to internal gRPC calls at the edge.

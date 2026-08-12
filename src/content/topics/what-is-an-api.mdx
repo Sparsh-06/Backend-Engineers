@@ -22,6 +22,8 @@ A **framework** is code that calls you. You write functions in the shape it expe
 
 An **API** is neither of those - it's the *interface itself*, the described contract. A library has an API (its exported functions). A framework has an API (the hooks and lifecycle methods you implement). A remote service exposes an API over HTTP. Same word, three completely different delivery mechanisms.
 
+<Visual id="api-as-contract" />
+
 <Callout>
 "Is this a library or a framework?" is really asking who's in control. If your code calls it, it's a library. If it calls your code, it's a framework. Either way, both of them expose an API - the actual set of promises about what will happen if you use them correctly.
 </Callout>

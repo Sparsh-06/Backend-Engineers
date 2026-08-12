@@ -1,0 +1,152 @@
+---
+title: "Build a URL shortener"
+description: "A working URL shortener - short code generation, redirects, and the collision and race-condition problems that only show up once more than one request hits the system at the same time."
+keywords: ["how to build a url shortener", "url shortener system design", "base62 encoding explained", "url shortener tutorial node js", "how does bit.ly work", "short url collision handling", "url shortener database design", "build tinyurl clone", "unique id generation backend", "url shortener race condition"]
+difficulty: "Beginner"
+---
+
+## The database schema
+
+Start with the table, because everything else is built around it:
+
+```sql
+CREATE TABLE urls (
+  id BIGSERIAL PRIMARY KEY,
+  short_code VARCHAR(10) UNIQUE NOT NULL,
+  long_url TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  click_count BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE UNIQUE INDEX idx_urls_short_code ON urls (short_code);
+```
+
+`id` is an auto-incrementing integer - Postgres hands these out one at a time, in order, guaranteed unique. That property is exactly what makes it useful for generating short codes, and exactly why you should never expose it directly.
+
+## Why sequential IDs are a problem on their own
+
+If your short code were just the raw integer ID (`/1`, `/2`, `/3`...), two things go wrong. First, it's not short - `/8482910473` isn't meaningfully shorter than the original URL for a lot of real links. Second, and more seriously, it leaks information. If a user sees their shortened link is `/1000042`, they now know roughly how many links have been created total, and they can walk the ID space - `/1000041`, `/1000040`, `/1000043` - and view other users' presumably-private shortened URLs, since nothing about a sequential ID is a secret. A support ticket, a marketing campaign link, an internal tool's shortened URL - all guessable by counting.
+
+The fix isn't to make the ID unpredictable (that fights the database's natural strength - sequential IDs are fast to generate and index). The fix is to encode the ID into something that doesn't look sequential to a human, without needing the database to do anything different.
+
+## Base62 encoding
+
+Base62 uses the 62 characters `[a-zA-Z0-9]` as digits, the same way decimal uses ten digits `[0-9]`. Encoding an integer ID into base62 gives you a short, URL-safe string that's reversible - you can decode it right back to the integer - but doesn't visually look like "the next number after the last one."
+
+```js
+const ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+const BASE = ALPHABET.length; // 62
+
+function encode(id) {
+  if (id === 0) return ALPHABET[0];
+
+  let result = "";
+  let n = id;
+  while (n > 0) {
+    result = ALPHABET[n % BASE] + result;
+    n = Math.floor(n / BASE);
+  }
+  return result;
+}
+
+function decode(code) {
+  let id = 0;
+  for (const char of code) {
+    id = id * BASE + ALPHABET.indexOf(char);
+  }
+  return id;
+}
+
+encode(1000042); // "4C9i"
+decode("4C9i");  // 1000042
+```
+
+Six base62 characters cover over 56 billion distinct values (62^6), which is plenty of headroom for a growing service without the code getting noticeably longer. Note this is obfuscation, not security - `4C9i` doesn't look sequential, but it's still a direct, reversible encoding of the ID, so don't rely on it to hide anything that actually needs to be private. It solves the "ugly and guessable-by-counting" problem, not an access-control problem.
+
+The flow for creating a short link: insert the row first (letting Postgres assign the `id`), then encode that `id` and write it back as the `short_code`.
+
+```js
+async function createShortUrl(longUrl) {
+  const { rows } = await db.query(
+    "INSERT INTO urls (long_url, short_code) VALUES ($1, '') RETURNING id",
+    [longUrl],
+  );
+  const id = rows[0].id;
+  const shortCode = encode(id);
+
+  await db.query("UPDATE urls SET short_code = $1 WHERE id = $2", [shortCode, id]);
+  return shortCode;
+}
+```
+
+## The redirect endpoint, and 301 vs 302
+
+Reads dominate this system by a wide margin - every link gets created once and clicked many times, so the redirect path is what needs to be fast and needs to scale.
+
+```js
+app.get("/:shortCode", async (req, res) => {
+  const { rows } = await db.query(
+    "SELECT long_url FROM urls WHERE short_code = $1",
+    [req.params.shortCode],
+  );
+
+  if (rows.length === 0) {
+    res.status(404).send("Not found");
+    return;
+  }
+
+  db.query("UPDATE urls SET click_count = click_count + 1 WHERE short_code = $1", [
+    req.params.shortCode,
+  ]).catch(console.error); // fire-and-forget, don't block the redirect on it
+
+  res.redirect(302, rows[0].long_url);
+});
+```
+
+The status code here is a real decision, not a formality. A `301 Moved Permanently` tells the browser this redirect is permanent, and browsers cache that aggressively - the next time the user clicks the same short link, the browser goes straight to the long URL without hitting your server at all. That's great for latency, but it means your click-count tracking and analytics silently stop working for that user, because the request that would have incremented `click_count` never happens.
+
+A `302 Found` tells the browser this redirect might change, so it hits your server every single time, guaranteeing every click gets logged. That's why most URL shorteners that care about analytics use 302 despite the extra latency and load - the whole point of the product is knowing who clicked what, and 301's caching directly defeats that.
+
+<Callout>
+If a link is guaranteed permanent and you don't care about per-click analytics - a canonical redirect from an old domain to a new one, say - 301 is the right choice and meaningfully reduces load. But default to 302 for anything user-facing where click tracking is part of the product; picking 301 there is an easy way to quietly break your own analytics dashboard.
+</Callout>
+
+## The custom-alias race condition
+
+Auto-generated codes never collide, because they're derived from a unique, database-assigned ID. Custom aliases are different - a user picks their own code, like `/my-launch`, and now two different requests can pick the same string.
+
+The naive approach checks first, then inserts:
+
+```js
+async function createCustomAliasNaive(longUrl, alias) {
+  const existing = await db.query("SELECT 1 FROM urls WHERE short_code = $1", [alias]);
+  if (existing.rows.length > 0) {
+    throw new Error("Alias already taken");
+  }
+  await db.query("INSERT INTO urls (long_url, short_code) VALUES ($1, $2)", [longUrl, alias]);
+}
+```
+
+This has the same shape of race condition you'd hit anywhere a check and a write are two separate steps: two requests for `/my-launch` can both run the `SELECT`, both see no existing row, both conclude it's free, and both proceed to `INSERT`. Whichever one commits second either overwrites the first (if there's no constraint) or fails with a generic duplicate-key error that the check-first code never anticipated.
+
+The fix is to stop checking at all, and let the database's unique constraint - the one already defined on `short_code` in the schema above - be the single source of truth. Attempt the insert directly, and handle the specific error Postgres raises when it fails:
+
+```js
+async function createCustomAlias(longUrl, alias) {
+  try {
+    await db.query("INSERT INTO urls (long_url, short_code) VALUES ($1, $2)", [longUrl, alias]);
+    return alias;
+  } catch (err) {
+    if (err.code === "23505") { // Postgres: unique_violation
+      throw new Error("That alias is already taken. Try another.");
+    }
+    throw err;
+  }
+}
+```
+
+This works because the uniqueness check now happens inside the database's own write path, which is inherently serialized - Postgres won't let two inserts both claim the same unique value, no matter how close together they arrive. There's no gap between "check" and "write" for a second request to land in, because there's no separate check anymore. The constraint *is* the check.
+
+## Where to go from here
+
+A real deployment would put a cache (Redis, or even an in-process LRU) in front of the redirect lookup, since a small number of links tend to get a disproportionate share of clicks and hitting Postgres for every single one is wasted work. Rate limiting the shorten endpoint matters too - without it, nothing stops someone from scripting thousands of link creations a second. And click tracking would move off the synchronous request path entirely in a system with real traffic - queue the click event and process it asynchronously, rather than writing to the same row from every concurrent redirect and creating contention on that single counter.

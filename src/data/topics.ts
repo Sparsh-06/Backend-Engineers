@@ -4,7 +4,14 @@ export type TopicItem = {
   description: string;
   keywords: string[];
   phase: string;
+  /** Hero visual, rendered above the lesson body. */
   visual?: TopicVisual;
+  /**
+   * Visuals placed inline in the lesson body. Each needs an `id`, referenced
+   * from the MDX with `<Visual id="..." />` so it renders next to the prose
+   * that explains it rather than all being stacked at the top.
+   */
+  visuals?: TopicVisual[];
 };
 
 export type MemoryMapVisual = {
@@ -68,11 +75,15 @@ export type TimelineVisual = {
   }[];
 };
 
-export type TopicVisual =
+export type TopicVisual = (
   | MemoryMapVisual
   | RequestFlowVisual
   | ComparisonVisual
-  | TimelineVisual;
+  | TimelineVisual
+) & {
+  /** Required only for visuals placed inline via `<Visual id="..." />`. */
+  id?: string;
+};
 
 export type TopicGroup = {
   slug: string;
@@ -103,6 +114,19 @@ const publishedTopicSlugs = new Set([
   "nodejs-worker-threads",
   "nodejs-streams",
   "nodejs-gc",
+  "nodejs-modules",
+  "nodejs-error-handling",
+  "nodejs-http-internals",
+  "tcp-ip-tls",
+  "http-evolution",
+  "rest-openapi",
+  "graphql",
+  "grpc-protobuf",
+  "realtime-communication",
+  "proxies",
+  "api-gateway",
+  "auth-and-security",
+  "rate-limiting",
 ]);
 
 export const topicGroups: TopicGroup[] = [
@@ -178,6 +202,25 @@ export const topicGroups: TopicGroup[] = [
           "how backend works",
         ],
         phase: "Phase 0",
+        visuals: [
+          {
+            id: "request-response-cycle",
+            type: "request-flow",
+            title: "One trip out, one trip back",
+            description: "The dot follows a single request from client to server and back again. Hover to send a second client through the same server.",
+            sourceId: "client-a",
+            nodes: [
+              { id: "client-a", label: "Client A", x: 30, y: 55 },
+              { id: "server", label: "Server", x: 165, y: 96, emphasis: true },
+              { id: "database", label: "Database", x: 300, y: 96 },
+              { id: "client-b", label: "Client B", x: 30, y: 150 },
+            ],
+            defaultPath: ["client-a", "server", "database", "server", "client-a"],
+            activePath: ["client-b", "server", "database", "server", "client-b"],
+            hint: "hover to swap the client",
+            detail: "The server answers the client, and to do that it becomes a client of the database itself - same ask-work-answer shape, one hop deeper. Nothing about the exchange is remembered once the response is sent, so the second client's request starts from scratch.",
+          },
+        ],
       },
       {
         slug: "url-to-response",
@@ -239,6 +282,21 @@ export const topicGroups: TopicGroup[] = [
           "HTTP request format",
         ],
         phase: "Phase 0",
+        visuals: [
+          {
+            id: "http-exchange-steps",
+            type: "timeline",
+            title: "One HTTP exchange, line by line",
+            description: "Step through a single request and the response that comes back.",
+            steps: [
+              { label: "Request line", detail: "The client opens with a method and a path - GET /users/42. The method is the client stating what it wants done: read it, create it, replace it, remove it." },
+              { label: "Request headers", detail: "Content-Type says how to parse the body, Authorization carries proof of who is asking, Cache-Control says how long the answer may be reused. None of this sits in the body, and all of it changes how the request gets handled." },
+              { label: "Server does the work", detail: "The server matches the path to some code, runs it, and decides how it went. Nothing has gone back to the client yet." },
+              { label: "Status code", detail: "The response opens with a number in a bucket: 2xx worked, 3xx look elsewhere, 4xx the client sent something wrong, 5xx the server broke. The bucket tells you whose problem it is before you open a single log file." },
+              { label: "Response headers and body", detail: "Headers describe what is coming back, then the body carries the actual data. A missing Content-Type here is enough to make perfectly valid JSON get read as plain text on the other end." },
+            ],
+          },
+        ],
       },
       {
         slug: "statelessness",
@@ -312,6 +370,34 @@ export const topicGroups: TopicGroup[] = [
           "engineering team structure",
         ],
         phase: "Phase 0",
+        visuals: [
+          {
+            id: "frontend-backend-ownership",
+            type: "comparison",
+            title: "Who owns which job",
+            description: "The same feature, split across two layers. Toggle to see which side is responsible for what.",
+            left: {
+              label: "Frontend",
+              summary: "Shows information and turns clicks into requests.",
+              points: [
+                "Renders the screen and decides what the user sees.",
+                "Validates a form for fast feedback, which anyone can skip with dev tools.",
+                "Holds nothing that has to survive a refresh.",
+                "Can hide a button, but cannot enforce who is allowed to press it.",
+              ],
+            },
+            right: {
+              label: "Backend",
+              summary: "Decides what is actually allowed, and keeps the data.",
+              points: [
+                "Re-checks every input, no matter what the frontend already checked.",
+                "Owns the database, so this is where state outlives a restart.",
+                "Authenticates the caller and answers 'can this user do this'.",
+                "Applies the same rules whether the call came from your app or from curl.",
+              ],
+            },
+          },
+        ],
       },
       {
         slug: "what-is-an-api",
@@ -336,6 +422,25 @@ export const topicGroups: TopicGroup[] = [
           "rest api basics",
         ],
         phase: "Phase 0",
+        visuals: [
+          {
+            id: "api-as-contract",
+            type: "request-flow",
+            title: "The interface, and what sits behind it",
+            description: "The web app calls the API and gets an answer back. Hover to send a mobile client through the exact same interface.",
+            sourceId: "web-app",
+            nodes: [
+              { id: "web-app", label: "Web app", x: 30, y: 55 },
+              { id: "api", label: "API", x: 160, y: 96, emphasis: true },
+              { id: "database", label: "Database", x: 295, y: 96 },
+              { id: "mobile", label: "Mobile", x: 30, y: 150 },
+            ],
+            defaultPath: ["web-app", "api", "database", "api", "web-app"],
+            activePath: ["mobile", "api", "database", "api", "mobile"],
+            hint: "hover to swap the caller",
+            detail: "Neither caller knows there is a database back there, or which one it is. That is the whole point of an interface: the promise about inputs and outputs is public, and everything behind it can change without either client noticing.",
+          },
+        ],
       },
       {
         slug: "sync-vs-async",
@@ -360,6 +465,34 @@ export const topicGroups: TopicGroup[] = [
           "task queue",
         ],
         phase: "Phase 0",
+        visuals: [
+          {
+            id: "sync-vs-async-waiting",
+            type: "comparison",
+            title: "Waiting in silence vs moving on",
+            description: "The phone call and the text message, as they show up in code. Toggle between them.",
+            left: {
+              label: "Synchronous",
+              summary: "The caller waits, doing nothing, until the answer arrives.",
+              points: [
+                "Lines run in the order you wrote them, so the code reads the way it runs.",
+                "Easier to reason about and to debug - one thing is happening at a time.",
+                "The thread sits idle for the entire wait, using no CPU and doing no work.",
+                "One slow database call holds up everything queued behind it.",
+              ],
+            },
+            right: {
+              label: "Asynchronous",
+              summary: "The caller starts the work, keeps going, and handles the result later.",
+              points: [
+                "Control comes back immediately, before the work has finished.",
+                "The waiting time gets spent on other requests instead of on nothing.",
+                "You need a callback, a promise, or await to pick the result back up.",
+                "Things finish in whatever order they finish, not the order you started them.",
+              ],
+            },
+          },
+        ],
       },
       {
         slug: "json-and-serialization",
@@ -408,6 +541,22 @@ export const topicGroups: TopicGroup[] = [
           "distributed systems reliability",
         ],
         phase: "Phase 0",
+        visuals: [
+          {
+            id: "idempotency-key-retry",
+            type: "timeline",
+            title: "A retry that doesn't charge twice",
+            description: "Step through a payment whose response gets lost on the way back.",
+            steps: [
+              { label: "Client sends payment", detail: "The client sends POST /payments with an Idempotency-Key header it generated - a unique value identifying this particular attempt." },
+              { label: "Server charges the card", detail: "The server processes the payment for real and stores the result next to that key before responding." },
+              { label: "Response is lost", detail: "The connection drops on the way back. The client sees a timeout and has no way to tell whether the charge happened or not." },
+              { label: "Client retries", detail: "Retrying is the only safe move, and the retry carries the exact same idempotency key as the first attempt." },
+              { label: "Server sees the key again", detail: "The server finds that key already stored, so it skips the payment logic entirely instead of charging the card a second time." },
+              { label: "Original result returned", detail: "The client gets back the same response the first attempt would have produced. Two requests arrived; one charge happened." },
+            ],
+          },
+        ],
       },
       {
         slug: "backend-components",
@@ -432,6 +581,26 @@ export const topicGroups: TopicGroup[] = [
           "what runs on a backend server",
         ],
         phase: "Phase 0",
+        visuals: [
+          {
+            id: "backend-pieces-path",
+            type: "request-flow",
+            title: "One request across the pieces",
+            description: "At rest the cache has the answer. Hover to make it a miss and watch the request fall through to the database.",
+            sourceId: "client",
+            nodes: [
+              { id: "client", label: "Client", x: 30, y: 96 },
+              { id: "balancer", label: "Balancer", x: 115, y: 96 },
+              { id: "app", label: "App", x: 195, y: 96, emphasis: true },
+              { id: "cache", label: "Cache", x: 285, y: 50 },
+              { id: "database", label: "Database", x: 285, y: 150 },
+            ],
+            defaultPath: ["client", "balancer", "app", "cache", "app", "client"],
+            activePath: ["client", "balancer", "app", "cache", "database", "app", "client"],
+            hint: "hover for a cache miss",
+            detail: "On a hit the request never reaches the database, which is the entire reason the cache is there. On a miss the app falls through to the database, sends the response, and usually writes the value into the cache so the next request takes the short path.",
+          },
+        ],
       },
       {
         slug: "environment-variables",
@@ -480,6 +649,22 @@ export const topicGroups: TopicGroup[] = [
           "api middleware",
         ],
         phase: "Phase 0",
+        visuals: [
+          {
+            id: "middleware-chain",
+            type: "timeline",
+            title: "One request through the chain",
+            description: "Step through what runs before your route handler ever sees the request.",
+            steps: [
+              { label: "Request arrives", detail: "A POST /orders request reaches the server. None of your route code has run yet - the request is at the front of the middleware chain." },
+              { label: "logRequest", detail: "Records that the request happened, then calls next() to hand control down the chain. It changes nothing about the request itself." },
+              { label: "requireAuth", detail: "Checks for an authorization header. If it's missing, it responds 401 and never calls next() - the chain stops here and your handler is never reached." },
+              { label: "parseBody", detail: "Reads the raw request stream and attaches a usable req.body. Your handler can rely on that existing precisely because this ran first." },
+              { label: "rateLimit", detail: "Checks whether this client has exceeded its quota. Same power as requireAuth: it can end the request early by responding instead of calling next()." },
+              { label: "Your route handler", detail: "Finally runs, with a logged, authenticated, parsed, rate-limited request. Every guarantee it depends on was established by something upstream." },
+            ],
+          },
+        ],
       },
       {
         slug: "latency-vs-throughput",
@@ -587,6 +772,34 @@ export const topicGroups: TopicGroup[] = [
           "node js performance tuning",
         ],
         phase: "Phase 1",
+        visuals: [
+          {
+            id: "cluster-vs-worker-threads",
+            type: "comparison",
+            title: "Cluster vs Worker Threads",
+            description: "Two different ways around the single JavaScript thread. Toggle to compare what each one actually gives you.",
+            left: {
+              label: "Cluster",
+              summary: "Forks the whole process, usually once per CPU core.",
+              points: [
+                "Every fork is a separate process with its own memory and its own event loop.",
+                "Incoming connections get spread across the forks, so all cores serve traffic.",
+                "One process crashing leaves the others still answering requests.",
+                "Nothing is shared, so moving data between forks means copying it over IPC.",
+              ],
+            },
+            right: {
+              label: "Worker Threads",
+              summary: "Extra JavaScript threads inside one process.",
+              points: [
+                "Each worker gets its own V8 context and heap, and talks by postMessage.",
+                "Built for CPU-bound work: image resizing, crypto, large JSON transforms.",
+                "SharedArrayBuffer can hand workers the same memory instead of a copy.",
+                "Shared memory brings real data races, so guard it with Atomics.",
+              ],
+            },
+          },
+        ],
       },
       {
         slug: "nodejs-streams",
@@ -635,6 +848,116 @@ export const topicGroups: TopicGroup[] = [
           "node js performance profiling",
         ],
         phase: "Phase 1",
+      },
+      {
+        slug: "nodejs-modules",
+        title: "CommonJS vs ESM in Node.js",
+        description:
+          "How require() actually works under the hood, how ES modules differ, and where the two systems collide.",
+        keywords: [
+          "commonjs vs esm node js",
+          "how does require work in node js",
+          "esm vs commonjs explained",
+          "require vs import node js",
+          "module.exports explained",
+          "CommonJS",
+          "ES modules",
+          "require",
+          "import export",
+          "require.cache",
+          "package.json type module",
+          "dual package hazard",
+          "__dirname in esm",
+          "top-level await",
+          "circular require",
+        ],
+        phase: "Phase 1",
+        visual: {
+          type: "comparison",
+          title: "CommonJS vs ES modules",
+          description: "See how each module system loads and what breaks when they mix.",
+          left: {
+            label: "CommonJS",
+            summary: "require() and module.exports - synchronous, cached, resolved at runtime.",
+            points: [
+              "require() runs synchronously, right where it's called.",
+              "Modules are cached by resolved file path after the first load.",
+              "Circular requires return a partial, in-progress exports object.",
+              "__dirname and __filename are injected by Node's module wrapper.",
+            ],
+          },
+          right: {
+            label: "ES modules",
+            summary: "import/export - statically analyzed, resolved before any code runs.",
+            points: [
+              "Import/export statements are parsed into a dependency graph up front.",
+              "Loading is asynchronous, which is what makes top-level await legal.",
+              "require() of a pure ESM package fails with ERR_REQUIRE_ESM.",
+              "A package shipping both builds can load twice as separate instances.",
+            ],
+          },
+        },
+      },
+      {
+        slug: "nodejs-error-handling",
+        title: "Error handling in Node.js",
+        description:
+          "Why uncaught exceptions and unhandled rejections are different mechanisms, and what actually happens after each.",
+        keywords: [
+          "node js error handling",
+          "uncaught exception vs unhandled rejection",
+          "process.on uncaughtException",
+          "unhandledRejection node js",
+          "try catch async node js",
+          "error handling node js",
+          "uncaughtException",
+          "unhandledRejection",
+          "async error handling",
+          "process exit code",
+          "domains node js deprecated",
+          "crash and restart pattern",
+          "graceful shutdown node js",
+          "node js production errors",
+          "PM2 restart",
+        ],
+        phase: "Phase 1",
+      },
+      {
+        slug: "nodejs-http-internals",
+        title: "How Node's HTTP server actually handles a request",
+        description:
+          "What http.createServer really does underneath, how keep-alive connections work, and what a framework like Express adds on top.",
+        keywords: [
+          "how does http.createServer work",
+          "node js http module internals",
+          "keep-alive connections node js",
+          "express vs raw http node js",
+          "node js request lifecycle",
+          "http.createServer",
+          "libuv http",
+          "keep-alive",
+          "backpressure http response",
+          "TCP socket node js",
+          "http.Server class",
+          "req res streams",
+          "express middleware internals",
+          "node js networking",
+          "socket connection reuse",
+        ],
+        phase: "Phase 1",
+        visual: {
+          type: "timeline",
+          title: "From TCP connection to response",
+          description: "Step through what happens between a socket connecting and the response going out.",
+          steps: [
+            { label: "TCP connection accepted", detail: "libuv accepts the incoming connection and hands Node a raw socket, wrapped as a net.Socket." },
+            { label: "Request line and headers parsed", detail: "Bytes arriving on the socket are fed into Node's HTTP parser (llhttp) as they arrive, incrementally, off the wire." },
+            { label: "req and res constructed", detail: "Once headers are fully parsed, Node builds an IncomingMessage (req) and ServerResponse (res) and calls your handler." },
+            { label: "Your handler runs", detail: "req is a readable stream for the body; res is a writable stream for the response - your code reads from one and writes to the other." },
+            { label: "Response written", detail: "res.write() and res.end() send bytes back over the same socket, respecting backpressure if the client reads slowly." },
+            { label: "Connection kept alive or closed", detail: "With keep-alive, the socket stays open for the next request from the same client instead of closing and reconnecting." },
+          ],
+        },
       },
       {
         slug: "go-scheduler",
@@ -702,31 +1025,158 @@ export const topicGroups: TopicGroup[] = [
         title: "OSI, TCP/IP, and TLS",
         description:
           "Follow a request from the internet connection to a private, secure conversation with a server.",
-        keywords: ["TCP", "TLS 1.3", "OSI model"],
+        keywords: [
+          "TCP",
+          "TLS 1.3",
+          "OSI model",
+          "how does tls 1.3 handshake work",
+          "TCP three-way handshake explained",
+          "TLS termination explained",
+          "what is TLS 1.2 vs 1.3",
+          "TCP vs UDP",
+          "IP routing basics",
+          "handshake",
+          "SYN SYN-ACK ACK",
+          "TLS certificate",
+          "encryption in transit",
+          "OSI layers explained",
+          "mutual TLS",
+        ],
         phase: "Phase 2",
+        visual: {
+          type: "timeline",
+          title: "From TCP connection to encrypted traffic",
+          description: "Step through the handshakes that happen before any application data moves.",
+          steps: [
+            { label: "SYN", detail: "The client sends a SYN with an initial sequence number, opening the TCP handshake." },
+            { label: "SYN-ACK", detail: "The server acknowledges the client's sequence number and sends its own." },
+            { label: "ACK", detail: "The client acknowledges the server's sequence number. TCP connection is now established." },
+            { label: "ClientHello + key share", detail: "TLS 1.3 starts immediately: the client sends its supported parameters and guesses a key share in the same flight." },
+            { label: "ServerHello + certificate", detail: "The server responds with its own key share, certificate, and encrypted data - all in one round trip." },
+            { label: "Application data", detail: "Both sides now share a session key. HTTP requests and responses travel encrypted from here on." },
+          ],
+        },
       },
       {
         slug: "http-evolution",
         title: "HTTP 1.1, HTTP 2, and HTTP 3",
         description:
           "See how each newer HTTP version helps websites load and respond more smoothly.",
-        keywords: ["HTTP/2", "HTTP/3", "QUIC", "keep-alive"],
+        keywords: [
+          "HTTP/2",
+          "HTTP/3",
+          "QUIC",
+          "keep-alive",
+          "HTTP head of line blocking explained",
+          "HTTP/1.1 vs HTTP/2 vs HTTP/3",
+          "why does QUIC use UDP",
+          "HTTP/2 multiplexing explained",
+          "stream prioritization",
+          "connections per origin",
+          "HPACK header compression",
+          "TCP head of line blocking",
+          "binary framing",
+          "server push",
+        ],
         phase: "Phase 2",
+        visual: {
+          type: "comparison",
+          title: "HTTP/1.1 vs HTTP/2",
+          description: "See what multiplexing over one connection actually changes.",
+          left: {
+            label: "HTTP/1.1",
+            summary: "One request at a time per connection, worked around with parallel connections.",
+            points: [
+              "Requests on one connection are handled strictly in order.",
+              "Browsers open up to 6 connections per origin to fake parallelism.",
+              "Domain sharding split assets across subdomains just to unlock more connections.",
+              "Headers repeat in full on every request - no shared compression.",
+            ],
+          },
+          right: {
+            label: "HTTP/2",
+            summary: "Many streams multiplexed over a single TCP connection.",
+            points: [
+              "Requests and responses interleave as independent streams on one connection.",
+              "One slow response no longer blocks others behind it.",
+              "HPACK compresses repeated headers using a shared table.",
+              "A single lost TCP packet still stalls every stream - fixed later by HTTP/3 over QUIC.",
+            ],
+          },
+        },
       },
       {
         slug: "rest-openapi",
         title: "REST and OpenAPI",
         description:
           "Learn to make APIs that are predictable, clear to use, and safe to call more than once.",
-        keywords: ["REST", "OpenAPI", "idempotency"],
+        keywords: [
+          "REST",
+          "OpenAPI",
+          "idempotency",
+          "what makes an api restful",
+          "REST vs RESTful in name only",
+          "PUT vs PATCH vs POST",
+          "OpenAPI Swagger explained",
+          "contract-first API design",
+          "resource oriented URLs",
+          "HTTP verbs REST",
+          "statelessness REST",
+          "API codegen from OpenAPI",
+          "swagger.yaml",
+          "REST API design best practices",
+        ],
         phase: "Phase 2",
+        visuals: [
+          {
+            id: "resource-urls-vs-rpc",
+            type: "comparison",
+            title: "Resource-oriented vs RPC in name only",
+            description: "Two APIs doing the same work, one following REST's constraints and one not. Toggle between them.",
+            left: {
+              label: "Resource-oriented",
+              summary: "The URL names a thing; the verb says what to do with it.",
+              points: [
+                "GET /users/42 reads it, DELETE /users/42 removes it - same URL, different verb.",
+                "The meaning lives in the method, so the path stays a noun.",
+                "The status code reports the outcome: 200, 201, 404, 409.",
+                "Caches and retry logic can rely on GET and PUT behaving as documented.",
+              ],
+            },
+            right: {
+              label: "RPC in name only",
+              summary: "The action is baked into the path, and everything is a POST.",
+              points: [
+                "POST /getUserById and POST /deleteUserById do the reading and the deleting.",
+                "One verb for every operation, so nothing can tell a read from a write.",
+                "Returns 200 OK for failures, with { error: true } buried in the body.",
+                "Works, but every client has to learn each endpoint individually.",
+              ],
+            },
+          },
+        ],
       },
       {
         slug: "graphql",
         title: "GraphQL",
         description:
           "Ask an API for exactly the data you need, while avoiding slow or overly expensive requests.",
-        keywords: ["GraphQL", "resolvers", "N+1"],
+        keywords: [
+          "GraphQL",
+          "resolvers",
+          "N+1",
+          "graphql n+1 problem explained",
+          "dataloader batching",
+          "graphql vs rest when to use",
+          "graphql resolver example",
+          "graphql over fetching under fetching",
+          "graphql schema",
+          "graphql query vs mutation",
+          "apollo server",
+          "graphql round trips",
+          "graphql caching problem",
+          "batch loading graphql",
+        ],
         phase: "Phase 2",
       },
       {
@@ -734,47 +1184,242 @@ export const topicGroups: TopicGroup[] = [
         title: "gRPC and Protocol Buffers",
         description:
           "A faster way for services to talk to each other using a clear shared format.",
-        keywords: ["gRPC", "protobuf", "streaming"],
+        keywords: [
+          "gRPC",
+          "protobuf",
+          "streaming",
+          "protocol buffers explained",
+          "grpc vs rest performance",
+          "grpc call types explained",
+          "bidirectional streaming grpc",
+          "why cant browsers call grpc directly",
+          "protobuf binary serialization",
+          "grpc unary call",
+          "grpc-web",
+          "service to service communication",
+          "grpc http/2",
+          ".proto file example",
+        ],
         phase: "Phase 2",
+        visuals: [
+          {
+            id: "json-vs-protobuf-wire",
+            type: "comparison",
+            title: "The same user, two formats on the wire",
+            description: "What actually travels when you send { id, name, email }. Toggle between the two encodings.",
+            left: {
+              label: "JSON over REST",
+              summary: "Text, with every key name spelled out on every message.",
+              points: [
+                "The strings \"id\", \"name\" and \"email\" get re-sent with each message.",
+                "You can curl the endpoint and read the response as-is.",
+                "No schema needed to decode it - the keys describe themselves.",
+                "Parsing means scanning text and looking up keys by name.",
+              ],
+            },
+            right: {
+              label: "Protobuf over gRPC",
+              summary: "Binary, with small numeric tags standing in for the field names.",
+              points: [
+                "Field 1, field 2, field 3 travel; the names stay in the .proto file.",
+                "Typically 3-10x smaller on the wire for the same logical data.",
+                "Unreadable without the schema, so curl gives you nothing useful.",
+                "Both sides compile the same .proto, so changing a field is a coordinated step.",
+              ],
+            },
+          },
+        ],
       },
       {
         slug: "realtime-communication",
         title: "Real-time communication",
         description:
           "Choose the right way to send live updates, such as chat messages or delivery status.",
-        keywords: ["WebSockets", "SSE", "long polling"],
+        keywords: [
+          "WebSockets",
+          "SSE",
+          "long polling",
+          "server sent events explained",
+          "websockets vs sse vs long polling",
+          "when to use websockets",
+          "how does long polling work",
+          "sse under the hood",
+          "text/event-stream",
+          "bidirectional vs one directional realtime",
+          "websocket handshake",
+          "live scores implementation",
+          "chat app realtime protocol",
+          "sse reconnection",
+        ],
         phase: "Phase 2",
+        visual: {
+          type: "comparison",
+          title: "SSE vs WebSockets",
+          description: "See why the direction of data flow decides which one fits.",
+          left: {
+            label: "Server-Sent Events",
+            summary: "A long-lived HTTP response the server keeps writing to.",
+            points: [
+              "Just HTTP with Content-Type: text/event-stream - no special protocol.",
+              "Strictly one-directional: server to client only.",
+              "Browsers auto-reconnect and resume via Last-Event-ID for free.",
+              "Works through existing proxies and load balancers unmodified.",
+            ],
+          },
+          right: {
+            label: "WebSockets",
+            summary: "A full-duplex connection after an HTTP upgrade handshake.",
+            points: [
+              "Starts as HTTP, then switches protocols with a 101 response.",
+              "Either side can send a message at any time, independently.",
+              "Needs infrastructure that supports the Upgrade header and long-lived connections.",
+              "Scaling across instances usually needs a shared pub/sub layer like Redis.",
+            ],
+          },
+        },
       },
       {
         slug: "proxies",
         title: "Reverse and forward proxies",
         description:
           "Understand the helpful middle layer that receives traffic before it reaches your app.",
-        keywords: ["reverse proxy", "forward proxy", "Envoy"],
+        keywords: [
+          "reverse proxy",
+          "forward proxy",
+          "Envoy",
+          "nginx reverse proxy explained",
+          "forward proxy vs reverse proxy",
+          "what does a reverse proxy do",
+          "tls termination reverse proxy",
+          "load balancing nginx",
+          "corporate proxy explained",
+          "reverse proxy caching",
+          "proxy server basics",
+          "envoy proxy explained",
+          "reverse proxy vs load balancer",
+          "api gateway vs reverse proxy",
+        ],
         phase: "Phase 2",
+        visuals: [
+          {
+            id: "forward-vs-reverse-proxy",
+            type: "request-flow",
+            title: "Which side the proxy stands on",
+            description: "At rest the request goes out through a forward proxy on the client's network. Hover to route it through a reverse proxy sitting in front of the server instead.",
+            sourceId: "client",
+            nodes: [
+              { id: "client", label: "Client", x: 35, y: 96 },
+              { id: "forward", label: "Forward", x: 115, y: 48 },
+              { id: "reverse", label: "Reverse", x: 235, y: 148 },
+              { id: "server", label: "Server", x: 300, y: 96 },
+            ],
+            defaultPath: ["client", "forward", "server"],
+            activePath: ["client", "reverse", "server"],
+            hint: "hover to flip sides",
+            detail: "A forward proxy sits close to the client and represents it, so the server only ever sees the proxy's IP. A reverse proxy sits close to the servers and represents them, so the client only ever sees one address and never learns which backend answered.",
+          },
+        ],
       },
       {
         slug: "api-gateway",
         title: "API gateways",
         description:
           "Use one front door to route requests, check access, and keep backend services simpler.",
-        keywords: ["API gateway", "routing", "authentication offloading"],
+        keywords: [
+          "API gateway",
+          "routing",
+          "authentication offloading",
+          "api gateway vs reverse proxy",
+          "what does an api gateway do",
+          "kong api gateway",
+          "aws api gateway explained",
+          "api gateway rate limiting",
+          "api gateway authentication",
+          "microservices gateway pattern",
+          "api gateway request transformation",
+          "backend for frontend pattern",
+          "single entry point microservices",
+          "gateway routing by path",
+        ],
         phase: "Phase 2",
+        visuals: [
+          {
+            id: "gateway-route-or-reject",
+            type: "request-flow",
+            title: "One front door, two outcomes",
+            description: "At rest a valid request is routed by path to the order service. Hover to send one that fails the check at the edge.",
+            sourceId: "client",
+            nodes: [
+              { id: "client", label: "Client", x: 35, y: 96 },
+              { id: "gateway", label: "Gateway", x: 140, y: 96, emphasis: true },
+              { id: "orders", label: "Orders", x: 285, y: 45 },
+              { id: "users", label: "Users", x: 285, y: 120 },
+              { id: "rejected", label: "401", x: 140, y: 158 },
+            ],
+            defaultPath: ["client", "gateway", "orders"],
+            activePath: ["client", "gateway", "rejected"],
+            hint: "hover to fail the check",
+            detail: "The gateway verifies the token and checks the rate limit before deciding anything else, then routes by path - /orders to the order service, /users to the user service. A request without a valid token gets a 401 from the gateway itself, and no backend service ever hears about it.",
+          },
+        ],
       },
       {
         slug: "auth-and-security",
         title: "Authentication and security standards",
         description:
           "Learn the basics of signing people in, giving them the right access, and protecting common weak spots.",
-        keywords: ["JWT", "OAuth", "OIDC", "CORS", "CSRF"],
+        keywords: [
+          "JWT",
+          "OAuth",
+          "OIDC",
+          "CORS",
+          "CSRF",
+          "authentication vs authorization",
+          "how does oauth 2.0 work",
+          "jwt structure explained",
+          "login with google flow",
+          "oidc vs oauth",
+          "jwt vs session tokens",
+          "how to revoke a jwt",
+          "cors explained simply",
+          "csrf attack example",
+        ],
         phase: "Phase 2",
+        visual: {
+          type: "timeline",
+          title: "Login with Google, step by step",
+          description: "Step through an OAuth + OIDC flow used behind most 'sign in with' buttons.",
+          steps: [
+            { label: "Redirect to Google", detail: "Your app redirects the user to Google's authorization endpoint with a client_id and redirect_uri." },
+            { label: "User approves access", detail: "The user logs into Google (if needed) and approves the permissions your app is requesting." },
+            { label: "Authorization code returned", detail: "Google redirects back to your redirect_uri with a short-lived authorization code." },
+            { label: "Code exchanged server-to-server", detail: "Your backend exchanges the code plus a client_secret for an access token - this never touches the browser." },
+            { label: "ID token identifies the user", detail: "OIDC's ID token, a JWT with identity claims like sub and email, tells your app who actually logged in." },
+            { label: "Access token calls the API", detail: "Your backend uses the access token to fetch the user's profile from Google's API on their behalf." },
+          ],
+        },
       },
       {
         slug: "rate-limiting",
         title: "Rate limiting and throttling",
         description:
           "Keep a busy API fair and stable by deciding how many requests each person can make.",
-        keywords: ["rate limiting", "throttling", "token bucket"],
+        keywords: [
+          "rate limiting",
+          "throttling",
+          "token bucket",
+          "sliding window vs fixed window rate limiting",
+          "leaky bucket algorithm explained",
+          "where does rate limiting belong in architecture",
+          "api gateway rate limiting",
+          "cdn rate limiting",
+          "rate limiting algorithms compared",
+          "429 too many requests",
+          "client side throttling",
+          "distributed rate limiting",
+          "rate limit headers",
+          "infrastructure layer rate limiting",
+        ],
         phase: "Phase 2",
       },
     ],

@@ -10,6 +10,8 @@ group: "backend-fundamentals"
 
 A request arrives at your server. Before it reaches the specific piece of code that actually handles "get user 42" or "create an order," it usually passes through a series of smaller functions first - checking if the user is logged in, logging that the request happened, parsing the body into something usable, checking whether this client has hit a rate limit. That chain of functions is middleware, and the code you actually think of as "your logic" is often the last stop, not the whole trip.
 
+<Visual id="middleware-chain" />
+
 ## What middleware looks like in practice
 
 ```js

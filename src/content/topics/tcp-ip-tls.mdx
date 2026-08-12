@@ -1,0 +1,51 @@
+---
+title: "OSI, TCP/IP, and TLS"
+description: "Follow a request from the internet connection to a private, secure conversation with a server."
+keywords: ["TCP", "TLS 1.3", "OSI model", "how does tls 1.3 handshake work", "TCP three-way handshake explained", "TLS termination explained", "what is TLS 1.2 vs 1.3", "TCP vs UDP", "IP routing basics", "handshake", "SYN SYN-ACK ACK", "TLS certificate", "encryption in transit", "OSI layers explained", "mutual TLS"]
+phase: "Phase 2"
+group: "protocols-and-apis"
+---
+
+## The OSI model is a map, not a checklist
+
+Most explanations of networking start with all seven OSI layers and expect you to memorize them. In practice, backend engineers live almost entirely in three: IP (routing - getting a packet from one machine to another), TCP (reliable, ordered delivery on top of IP), and TLS (encrypting whatever TCP is carrying). Everything else - the physical layer, the data link layer - matters to network engineers, not to someone writing a Node service. The OSI model is useful as a map of where a given piece of technology lives, not something you need to recite.
+
+## IP gets packets there, not there reliably
+
+IP's job is narrow: given a destination address, figure out how to route a packet toward it, hop by hop, through routers that don't know anything about the full path - only the next hop. IP makes no promises about delivery. Packets can arrive out of order, arrive duplicated, or not arrive at all. That's deliberate; IP is a best-effort, connectionless protocol, and reliability is left to whatever's running on top of it.
+
+## TCP: reliable, ordered, and it costs a round trip up front
+
+TCP adds the guarantees IP doesn't: packets arrive in order, lost packets get retransmitted, and the receiver acknowledges what it got. It does this by establishing a connection first, via the three-way handshake:
+
+1. Client sends `SYN` (synchronize) with an initial sequence number
+2. Server responds with `SYN-ACK` - acknowledging the client's sequence number and sending its own
+3. Client responds with `ACK`, acknowledging the server's sequence number
+
+Only after that exchange completes can either side send actual data. That's one full round trip spent before a single byte of the request goes anywhere - on a connection with 80ms of latency to the server, that's 80ms gone before HTTP even starts. This is one of the reasons keep-alive connections matter so much in practice: paying the handshake cost once and reusing the TCP connection for many requests is dramatically cheaper than re-handshaking per request.
+
+## TLS: the same idea, one layer up
+
+TLS runs on top of an already-established TCP connection and handles two things: authenticating who you're actually talking to (via certificates) and negotiating a shared encryption key so everything that follows is private and tamper-evident. Before TLS 1.3, this cost its own round trip on top of TCP's.
+
+**TLS 1.2** needed two round trips: one to agree on a cipher suite and exchange initial randomness, a second to actually exchange keys and confirm. Combined with TCP's handshake, that's three round trips of pure setup before the first application byte moves.
+
+**TLS 1.3** collapsed that to one round trip. The client guesses which key-exchange parameters the server will accept and sends its key share in the very first message, alongside the `ClientHello`. If the server supports what the client guessed - which, with a small, standardized set of supported groups, it almost always does - the server responds with its own key share, a certificate, and encrypted application data all in one flight. One round trip for the whole handshake, not two.
+
+<Callout>
+On a connection with 100ms round-trip time, moving from TLS 1.2 to TLS 1.3 doesn't save 100ms in some abstract sense - it removes an entire round trip from every new connection setup, which is 100ms saved before any request-specific work even starts. At scale, across millions of new connections a day, that's a meaningful chunk of aggregate latency disappearing from a change most engineers never had to touch code for; it happens at the TLS library and OS level.
+</Callout>
+
+## TLS 1.3 also dropped weak, legacy cruft
+
+Beyond the round-trip savings, TLS 1.3 removed support for older, broken cryptographic primitives that TLS 1.2 still allowed for compatibility - RC4, static RSA key exchange (which doesn't provide forward secrecy), and CBC-mode ciphers that had been the target of repeated padding-oracle attacks. Every TLS 1.3 handshake now provides forward secrecy by default: even if a server's private key leaks later, past sessions can't be decrypted retroactively, because the actual session keys were derived from ephemeral, per-connection values that are never stored.
+
+## What "TLS termination" actually means
+
+In a real production stack, TLS is rarely terminated by the application process itself. A load balancer, reverse proxy, or CDN edge node sits in front of your app, holds the TLS certificate, and does the handshake with the client. Traffic from that termination point to your actual application server often travels as plain HTTP over a private network - inside a VPC, or over a service mesh with its own internal mTLS.
+
+This is why "is my API using HTTPS" and "is my app server terminating TLS" are different questions. An AWS Application Load Balancer or an Nginx reverse proxy commonly holds the certificate, decrypts the request, and forwards it to the backend over plain HTTP on a private subnet. That's normal and not a security gap by itself - the assumption is that the private network between the proxy and the app is itself trusted or additionally encrypted. Where teams get this wrong is assuming "traffic is encrypted" end-to-end when it's only encrypted on the public leg, and then being surprised when an internal network compromise exposes plaintext traffic they thought was protected.
+
+## Mutual TLS, briefly
+
+Regular TLS authenticates the server to the client - the client verifies the server's certificate, but the server has no idea who the client is beyond its IP. Mutual TLS (mTLS) flips this around: both sides present certificates, and both sides verify. This is common between internal services - a service mesh like Istio or Linkerd handling mTLS automatically between pods - but rare for public-facing APIs, since managing client certificates for every consumer doesn't scale the way an API key or bearer token does.

@@ -88,8 +88,9 @@ export default async function TopicPage({
     notFound();
   }
 
-  // Try to load rich markdown content - null if no .md file exists yet
-  const markdown = await getTopicContent(slug);
+  // Try to load rich markdown content - null if no .md file exists yet.
+  // `topic.visuals` is the pool that inline `<Visual id="..." />` tags draw from.
+  const markdown = await getTopicContent(slug, topic.visuals ?? []);
 
   const relatedTopics = group.topics
     .filter((relatedTopic) => relatedTopic.slug !== topic.slug)

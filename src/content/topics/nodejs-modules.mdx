@@ -1,0 +1,114 @@
+---
+title: "CommonJS vs ESM in Node.js"
+description: "How require() actually works under the hood, how ES modules differ, and where the two systems collide."
+keywords: ["commonjs vs esm node js", "how does require work in node js", "esm vs commonjs explained", "require vs import node js", "module.exports explained", "CommonJS", "ES modules", "require", "import export", "require.cache", "package.json type module", "dual package hazard", "__dirname in esm", "top-level await", "circular require"]
+phase: "Phase 1"
+group: "language-runtimes"
+---
+
+## Two module systems, one runtime
+
+Node shipped with CommonJS from the start - `require()` and `module.exports`, invented for Node specifically, years before JavaScript had a native module syntax. ES modules (`import`/`export`) came later, standardized in the language itself, and Node had to retrofit support for them into a runtime already built around something else. That history is the reason interop between the two is still awkward today.
+
+## What require() actually does
+
+`require()` isn't special syntax - it's a regular function. Calling it triggers a synchronous sequence: resolve the specifier to a file path, check if that path is already in the module cache, and if not, read the file, wrap it in a function, and execute it immediately, blocking, before returning control to the caller.
+
+That wrapping step matters. Node doesn't run your file as-is - it wraps it in a function first:
+
+```js
+(function (exports, require, module, __filename, __dirname) {
+  // your file's actual code goes here
+});
+```
+
+That's where `module`, `exports`, `require`, `__filename`, and `__dirname` come from in every CommonJS file - they're not globals, they're parameters injected into this wrapper.
+
+## Caching, and what that means for shared state
+
+The second time anything calls `require("./db")`, Node doesn't re-read or re-execute the file. It returns the same `module.exports` object from `require.cache`, keyed by resolved file path.
+
+```js
+// db.js
+console.log("db.js is running");
+let connectionCount = 0;
+module.exports = {
+  connect: () => ++connectionCount,
+};
+```
+
+```js
+// a.js
+const db = require("./db");
+db.connect();
+
+// b.js
+const db = require("./db"); // "db.js is running" does NOT print again
+db.connect(); // same connectionCount as a.js saw
+```
+
+Both files get the exact same object. This is why a database connection pool set up in one module and required elsewhere behaves like a singleton - not because of any special pattern, just because `require` caches by resolved path.
+
+## Circular requires do something specific, not random
+
+```js
+// a.js
+console.log("a starting");
+exports.done = false;
+const b = require("./b");
+console.log("in a, b.done =", b.done);
+exports.done = true;
+
+// b.js
+console.log("b starting");
+exports.done = false;
+const a = require("./a");
+console.log("in b, a.done =", a.done); // false - a hasn't finished yet
+exports.done = true;
+```
+
+When `b.js` calls `require("./a")` mid-execution, `a.js` is still running - it hasn't reached the bottom of the file yet. Node doesn't re-run it or block waiting for it to finish. It hands back whatever partial `exports` object `a.js` has built up so far. `b` sees `a.done` as `false`, because that's genuinely where `a` was when the circular call happened.
+
+## How ESM is different in kind, not just syntax
+
+`import`/`export` isn't sugar over `require`. It's statically analyzed - the engine parses every `import`/`export` statement before running any code, building a dependency graph up front. That's what makes tree-shaking possible (bundlers can see exactly what's used without executing anything) and it's why `import` statements have to sit at the top level, not inside an `if` block the way `require()` can.
+
+ESM loading is also asynchronous by design, which is what makes top-level `await` legal:
+
+```js
+// esm-example.mjs
+const res = await fetch("https://api.example.com/config");
+export const config = await res.json();
+```
+
+You could never write that at the top of a CommonJS file - `require()` is synchronous, and there was never a mechanism for a module itself to pause loading.
+
+Node decides which system a `.js` file uses based on the nearest `package.json`'s `"type"` field. `"type": "module"` treats `.js` as ESM; its absence (or `"type": "commonjs"`) treats it as CommonJS. `.mjs` and `.cjs` extensions override that and are unambiguous regardless of `package.json`.
+
+## Where the interop actually breaks
+
+`__dirname` and `__filename` don't exist in ESM - there's no wrapper function injecting them. The replacement:
+
+```js
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+```
+
+`require()` of a package that's pure ESM fails outright - Node can't synchronously load something that's asynchronous by design:
+
+```
+Error [ERR_REQUIRE_ESM]: require() of ES Module /node_modules/pkg/index.js not supported.
+```
+
+The fix is either switching your own file to ESM and using `import`, or using `import()` (the dynamic, async form) instead of `require()`.
+
+<Callout>
+The dual-package hazard is the subtle one: a library that ships both a CommonJS and an ESM build can end up loaded twice in the same process - once via `require()`, once via `import` - as two separate module instances with separate module-level state. A singleton exported from that package silently stops being a singleton. Any `instanceof` check across the two copies fails too, since they're different classes as far as the engine is concerned.
+</Callout>
+
+## Which one to reach for
+
+New projects have little reason to start on CommonJS - `"type": "module"` in `package.json`, `import`/`export` throughout, and top-level `await` where it's useful. Existing CommonJS codebases don't need an urgent rewrite; `require()` still works exactly as it always has, and Node has no plans to remove it. The friction only shows up at the boundary, when your code needs to consume a package that made the opposite choice.

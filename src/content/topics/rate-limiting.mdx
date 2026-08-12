@@ -1,0 +1,103 @@
+---
+title: "Rate limiting and throttling"
+description: "Keep a busy API fair and stable by deciding how many requests each person can make."
+keywords: ["rate limiting", "throttling", "token bucket", "sliding window vs fixed window rate limiting", "leaky bucket algorithm explained", "where does rate limiting belong in architecture", "api gateway rate limiting", "cdn rate limiting", "rate limiting algorithms compared", "429 too many requests", "client side throttling", "rate limiting vs throttling difference", "distributed rate limiting", "rate limit headers", "infrastructure layer rate limiting"]
+phase: "Phase 2"
+group: "protocols-and-apis"
+---
+
+## Rate limiting and throttling, as distinct ideas
+
+Rate limiting rejects requests outright once a client exceeds an allowed rate, typically with a `429 Too Many Requests` response. Throttling is a softer relative - deliberately slowing a client down (delaying responses, queuing requests) rather than rejecting them outright. Both exist for the same underlying reason: protect a system's capacity from being consumed unfairly by one client at the expense of everyone else, or from being overwhelmed entirely by a traffic spike, accidental or malicious.
+
+For a full implementation walkthrough - including the actual race condition in a naive Redis counter and how a Lua script fixes it - see the token bucket build project. This topic stays at the level of which algorithm to reach for and where in the stack the decision gets enforced.
+
+## The four algorithms, compared
+
+**Fixed window** counts requests in discrete, clock-aligned intervals - "100 requests per client per minute," reset on the minute. Cheapest to implement and reason about, but it allows a burst at the window boundary: a client can send 100 requests at 0:59 and another 100 at 1:00, doubling the effective rate for a brief window that straddles the boundary. Fine for coarse abuse protection, not for a hard guarantee.
+
+**Sliding window** (typically implemented as a sliding window log, or an approximation blending two adjacent fixed windows) tracks requests relative to "now," not a fixed clock boundary, which removes the boundary-burst problem. A sliding window log keeps a timestamp per request and counts how many fall within the trailing window on every check - accurate, but memory and computation scale with request volume rather than being a single counter per client. A weighted approximation across two fixed windows gets most of the accuracy at a fraction of the cost, which is what most production sliding-window implementations actually use.
+
+**Token bucket** tracks a continuously refilling budget per client - a bucket holds up to some capacity, tokens drip in at a steady rate, each request costs a token. It naturally tolerates short bursts up to the bucket's capacity, which tends to match real client behavior (a page load firing several requests at once, then going quiet). This burst tolerance is a deliberate feature, not a bug, but it means "never more than X in any Y-second window, full stop" isn't quite what token bucket guarantees - brief excursions above the steady rate are allowed by design.
+
+**Leaky bucket** flips the framing: requests enter a queue (the bucket) and get processed - "leak out" - at a fixed, constant rate, regardless of how bursty the arrivals were. Where token bucket allows bursts through immediately as long as tokens are available, leaky bucket smooths everything to a constant output rate, which is closer to what a downstream system with genuinely fixed processing capacity needs, like a queue feeding a fixed-throughput worker pool.
+
+<Callout>
+Token bucket and leaky bucket are often described as opposites, but the real distinction is about what each is protecting. Token bucket protects against a client exceeding a fair share over time while tolerating natural burstiness in how legitimate traffic arrives. Leaky bucket protects a downstream resource that has a genuinely fixed processing rate no matter how the input arrives - it doesn't care that the burst was "fair," only that the resource behind it can't go faster than its fixed rate regardless.
+</Callout>
+
+Whichever algorithm is chosen, the behavior a client sees is the same shape: a
+ceiling on what gets through, and everything past it rejected. What changes as
+traffic climbs is the ratio between those two, and how much the rejections
+themselves start to cost:
+
+<Simulator
+  title="One client against a 100 req/s limit"
+  description="Illustrative numbers, not measured. A single client identity with a steady-state limit of 100 requests per second, measured at the layer enforcing it."
+  label="Incoming rate from one client"
+  steps={[
+    {
+      value: "20 req/s",
+      readouts: [
+        { label: "Allowed", value: "20/s", status: "good" },
+        { label: "Rejected (429)", value: "0/s", status: "good" },
+        { label: "Status", value: "Under limit", status: "good" },
+      ],
+      note: "Well inside the budget. The limiter is doing a counter check per request and rejecting nothing - which is what it does for the overwhelming majority of real traffic, and why its own cost per request matters.",
+    },
+    {
+      value: "95 req/s",
+      readouts: [
+        { label: "Allowed", value: "95/s", status: "good" },
+        { label: "Rejected (429)", value: "0/s", status: "good" },
+        { label: "Status", value: "Near limit", status: "warn" },
+      ],
+      note: "Nothing rejected yet, but there is no headroom left for a burst. A legitimate client sitting here will start seeing 429s from ordinary variation in its own traffic, which is usually a sign the limit is set too close to normal usage.",
+    },
+    {
+      value: "100 req/s",
+      readouts: [
+        { label: "Allowed", value: "100/s", status: "good" },
+        { label: "Rejected (429)", value: "0/s", status: "good" },
+        { label: "Status", value: "At the ceiling", status: "warn" },
+      ],
+      note: "Exactly at the limit. Note that a fixed window and a token bucket disagree about what happens next - the bucket will let a short burst through if tokens have accumulated, while a fixed window will not, and clients notice that difference.",
+    },
+    {
+      value: "300 req/s",
+      readouts: [
+        { label: "Allowed", value: "100/s", status: "good" },
+        { label: "Rejected (429)", value: "200/s", status: "warn" },
+        { label: "Status", value: "Shedding load", status: "warn" },
+      ],
+      note: "The limiter is doing its job: allowed traffic is flat at 100/s no matter what arrives, so everyone else's share of the system is untouched. Two thirds of this client's requests get a 429, and whether that is fine or a paging incident depends entirely on whether the client is abusive or just deployed a bad retry loop.",
+    },
+    {
+      value: "5,000 req/s",
+      readouts: [
+        { label: "Allowed", value: "100/s", status: "good" },
+        { label: "Rejected (429)", value: "4,900/s", status: "bad" },
+        { label: "Status", value: "Rejection is the load", status: "bad" },
+      ],
+      note: "Allowed traffic is still exactly 100/s, but the application is now handling 5,000 connections a second just to say no to most of them. Rejecting is cheaper than serving, not free - which is the argument for pushing volumetric abuse out to the CDN or WAF layer before it reaches anything that has to think about it.",
+    },
+  ]}
+/>
+
+## Where rate limiting actually belongs, architecturally
+
+Rate limiting isn't a single layer's job - different layers protect against different things, and mature systems usually combine more than one.
+
+**Client-side** throttling (debouncing a search-as-you-type input, backing off after a `429`) reduces unnecessary load before it ever leaves the client, but it's advisory only - nothing stops a client from ignoring it, so it can never be the actual security boundary.
+
+**CDN / infrastructure layer** (Cloudflare, AWS WAF) catches the highest-volume abuse - DDoS-scale traffic, scraping bots - before it reaches anything resembling application infrastructure. This layer deals in raw volume and IP reputation, not business logic.
+
+**API gateway layer**, covered in the API gateway topic, is where most everyday per-client or per-API-key rate limiting lives - it's the natural place because the gateway already sees every request and has already established client identity via auth, so limits can be enforced per user or per API key rather than just per IP.
+
+**Application layer** rate limiting is for logic that needs business context the gateway doesn't have - a stricter limit on password-reset attempts specifically, or a per-feature quota tied to a pricing tier, where the decision depends on data the gateway isn't positioned to evaluate.
+
+A real system typically layers these: infrastructure-level protection against volumetric abuse, gateway-level per-client fairness, and application-level limits for specific sensitive operations - each layer catching what the ones before it were never meant to catch.
+
+## Responding correctly matters as much as the algorithm
+
+A `429` response should include a `Retry-After` header telling the client how many seconds to wait, rather than leaving it to guess and potentially retry immediately, making the problem worse. Emitting a metric on every rejection is worth doing too - a sudden spike in `429`s is often the earliest signal that something changed, whether that's legitimate traffic growth or a client retrying too aggressively after a deploy.
