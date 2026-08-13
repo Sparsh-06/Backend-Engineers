@@ -132,7 +132,7 @@ export default function Home() {
               Backend engineering topics, mapped
             </p>
             <h2 className="max-w-3xl text-balance text-3xl font-medium leading-tight tracking-[-0.045em] sm:text-5xl">
-              We skip the jargon. Let's form better technical instincts together.
+              We skip the jargon. Let&rsquo;s form better technical instincts together.
             </h2>
           </div>
           <div className="mt-16 grid border-t border-white/15 md:grid-cols-2">
