@@ -3,13 +3,30 @@ import path from "path";
 import React from "react";
 import { compileMDX } from "next-mdx-remote/rsc";
 import rehypeSlug from "rehype-slug";
+import rehypePrettyCode from "rehype-pretty-code";
 import remarkGfm from "remark-gfm";
 import { rehypeGlossary } from "@/lib/rehype-glossary";
 import { glossaryTerms } from "@/data/glossary";
 import InteractiveVisual from "@/modules/components/topics/interactive-visual";
 import CodeWalkthrough from "@/modules/components/mdx/code-walkthrough";
 import Simulator from "@/modules/components/mdx/simulator";
+import CodeBlock from "@/modules/components/mdx/code-block";
 import type { TopicVisual } from "@/data/topics";
+
+/**
+ * Fenced ```code``` blocks get real syntax highlighting at build time (zero
+ * runtime JS cost - topic/build pages are statically generated). Inline
+ * `code` stays untouched (bypassInlineCode) so the existing orange-chip
+ * style for short snippets isn't replaced by per-token colors, which reads
+ * noisy at that size. keepBackground is off so the card's own background
+ * (set in CSS) stays in sync with the rest of the site's dark UI elements
+ * instead of whatever the theme ships.
+ */
+const rehypePrettyCodeOptions = {
+  theme: "github-dark",
+  keepBackground: false,
+  bypassInlineCode: true,
+} as const;
 
 const CONTENT_DIR = path.join(process.cwd(), "src/content/topics");
 const BUILD_CONTENT_DIR = path.join(process.cwd(), "src/content/build");
@@ -119,6 +136,9 @@ function buildMdxComponents(visuals: TopicVisual[]) {
     },
     CodeWalkthrough,
     Simulator,
+    /** Every fenced ```code``` block - adds the language chip + copy button
+     * around what rehype-pretty-code already tokenized into highlighted spans. */
+    pre: CodeBlock,
   };
 }
 
@@ -164,6 +184,7 @@ async function readContent<TFrontmatter>(
         remarkPlugins: [remarkGfm],
         rehypePlugins: [
           rehypeSlug,
+          [rehypePrettyCode, rehypePrettyCodeOptions],
           [rehypeGlossary, { terms: glossaryTerms, currentSlug: slug }],
         ],
       },

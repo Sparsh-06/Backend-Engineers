@@ -14,7 +14,7 @@ Share this article
 
 
 Introduction
-As AI and machine learning become even more central to critical products and services—including at Uber—companies must understand how their models work and ensure they’re governed responsibly. At Uber, where AI is developed across many platforms and teams, we launched a company-wide Responsible AI program to bring visibility, explainability, and governance to models. Through a centralized Model Catalog, automated tooling, feature-importance explainability, early compliance checks, and broad employee education, we’ve built a scalable foundation for responsible AI innovation across the company.
+As AI and machine learning become even more central to critical products and services-including at Uber-companies must understand how their models work and ensure they’re governed responsibly. At Uber, where AI is developed across many platforms and teams, we launched a company-wide Responsible AI program to bring visibility, explainability, and governance to models. Through a centralized Model Catalog, automated tooling, feature-importance explainability, early compliance checks, and broad employee education, we’ve built a scalable foundation for responsible AI innovation across the company.
 
 The Situation: AI Governance is Essential For Scale
 As AI systems become integral to our daily lives, ensuring they perform reliably and fairly is essential.  People rightly expect the systems they interact with to be developed and governed responsibly.  
@@ -24,10 +24,10 @@ To meet these standards of stewardship, Uber has implemented a governance framew
 The Complication: AI is Everywhere
 AI is deeply embedded across Uber, so effective governance must extend across the entire company and integrate seamlessly into engineers’ existing workflows. This includes the engineers who develop AI using Michelangelo, Uber’s AI platform, as well as the teams embedding GenAI (GenerativeAI) into their work.
 
-As Uber’s use of AI continues to expand, our governance approach isn’t to layer on more rules for each system, but instead to build durable systems and processes that can intelligently—and seamlessly—adapt to support new use cases as they emerge.
+As Uber’s use of AI continues to expand, our governance approach isn’t to layer on more rules for each system, but instead to build durable systems and processes that can intelligently-and seamlessly-adapt to support new use cases as they emerge.
 
 The Solution: Uber’s Responsible AI Program
-To address these challenges, we established a comprehensive Responsible AI program that builds governance directly into the AI development life cylce—helping teams stay compliant while minimizing friction. 
+To address these challenges, we established a comprehensive Responsible AI program that builds governance directly into the AI development life cylce-helping teams stay compliant while minimizing friction. 
 
 Our strategy rests on five core pillars:
 
@@ -41,7 +41,7 @@ The technical foundation of the Responsible AI program starts with accurate, sta
 
 Visibility = single source of truth
 
-To achieve this, we built an evergreen, centralized inventory of all AI systems at Uber. This inventory— the Model Catalog—serves as the single source of truth for all metadata associated with deployed models at Uber.
+To achieve this, we built an evergreen, centralized inventory of all AI systems at Uber. This inventory- the Model Catalog-serves as the single source of truth for all metadata associated with deployed models at Uber.
 
 At the core of the Model Catalog is a Model Card. This standardized document provides a centralized view of each model’s key attributes, enabling a shared understanding across engineers, governance professionals, and other key stakeholders. Model cards include concise descriptions of the model, performance and accuracy metrics, and deployment details and supporting documentation.  
 
@@ -69,7 +69,7 @@ Figure 2: Example of SHAP values for each feature, taken from https://github.com
 
 This analysis is integrated directly into the model workflow. Feature importance is computed after training, and the results are automatically linked to each Model Card, giving engineers, business owners, and governance teams direct visibility into the key drivers behind model behaviors.
 
-Together, visibility and explainability enable greater transparency. They also support our ability to communicate, in accessible ways, how AI impacts everyday experiences on the Uber platform—through resources such as Uber’s What Moves Us website.
+Together, visibility and explainability enable greater transparency. They also support our ability to communicate, in accessible ways, how AI impacts everyday experiences on the Uber platform-through resources such as Uber’s What Moves Us website.
 
 Part 3: Integrating Governance Into Core Workflows
 The governance pillar ensures that responsible AI principles aren’t just defined, but are operationalized across the entire organization, embedding them directly into Uber’s engineering culture.
@@ -94,7 +94,7 @@ The process started with a manual onboarding and beta-testing phase, partnering 
 
 To support this, we refined our framework around a few concepts:
 
-Life-cycle-aware governance. We established a shared understanding of what constitutes an in-scope model, accounting for the full model life cycle—from early experimentation to production deployments, so governance could adapt to how teams‌ build and iterate. 
+Life-cycle-aware governance. We established a shared understanding of what constitutes an in-scope model, accounting for the full model life cycle-from early experimentation to production deployments, so governance could adapt to how teams‌ build and iterate. 
 Adaptive, technology-agnostic controls. As new techniques, libraries, and applications emerge, governance systems must evolve with them.  We shifted from static rules to a dynamic classification system  that can accommodate change without constant manual intervention. 
 Precision with context. At scale, effective governance depends on balancing automation with nuance.  We designed review mechanisms that incorporate contextual signals and expert oversight, helping distinguish meaningful model implementations from incidental or non-impactful usage.
 Create system-level visibility. Because AI at Uber spans multiple platforms and codebases, governance must operate at the system level–not just on individual files or tools.  Our approach reflects how models are built collaboratively across teams, repositories, and workflows 
@@ -121,4 +121,4 @@ We also want to give a special thank you to the additional partners on the Miche
 
 Cover Photo Attribution: The image is created by AI with Gemini.
 
-Stay up to date with the latest from Uber Engineering—follow us on LinkedIn for our newest blog posts and insights.
+Stay up to date with the latest from Uber Engineering-follow us on LinkedIn for our newest blog posts and insights.

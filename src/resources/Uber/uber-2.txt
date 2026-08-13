@@ -19,7 +19,7 @@ Share this article
 
 
 Introduction
-Search underpins nearly every real-time experience at Uber: from matching riders and drivers, to fraud detection, to powering recommendations on Uber Eats. As these systems grew in traffic, payload size, and latency sensitivity, we hit a familiar industry limit: REST/JSON was no longer just slower—it was constraining how our search platform could evolve.
+Search underpins nearly every real-time experience at Uber: from matching riders and drivers, to fraud detection, to powering recommendations on Uber Eats. As these systems grew in traffic, payload size, and latency sensitivity, we hit a familiar industry limit: REST/JSON was no longer just slower-it was constraining how our search platform could evolve.
 
 Internally, much of Uber’s infrastructure already communicates using gRPC™ and Protobuf. These systems rely on strongly typed contracts, efficient binary serialization, and streaming-friendly transports. But OpenSearch, which Uber had standardized as the foundation for search and retrieval, historically exposed only REST/JSON APIs. Bridging these two worlds required translation layers that added latency, complexity, and operational risk.
 
@@ -61,7 +61,7 @@ To address this, we built an end-to-end automated pipeline with three stages: pr
 
 Flowchart illustrating the 'Auto proto convert workflow' starting with downloading the opensearch-spec release, followed by preprocessing steps (Filter, Sanitizer, Schema Modifier, Vendor Extension processor), converting to protobuf, post processing, and generating code via pull request and merge into protos/generated directory.
 Figure 3: The steps of the automated protobuf conversion workflow.
-During preprocessing, we resolve semantic mismatches between REST APIs and Protobuf schemas. REST specifications often rely on REST-specific conventions—such as method-and-path semantics, query parameters, and status-code-driven behavior—while Protobuf requires explicit, strongly typed request/response messages. We normalize the OpenAPI specification and apply a set of conversion rules that make these implicit REST behaviors explicit and safe to generate into Protobuf.
+During preprocessing, we resolve semantic mismatches between REST APIs and Protobuf schemas. REST specifications often rely on REST-specific conventions-such as method-and-path semantics, query parameters, and status-code-driven behavior-while Protobuf requires explicit, strongly typed request/response messages. We normalize the OpenAPI specification and apply a set of conversion rules that make these implicit REST behaviors explicit and safe to generate into Protobuf.
 
 Next, the core conversion step translates the preprocessed OpenAPI specification into Protobuf artifacts. While OpenAPI Generator provides mature support for generating clients and servers in many JSON-based formats, it didn’t have equivalent support for robust JSON-to-Protobuf conversion. To address this gap, we derived and contributed a set of conversion  rules to OpenAPI Generator, ensuring that gRPC APIs stay structurally aligned with their REST counterparts as the API surface evolves.
 
@@ -131,7 +131,7 @@ Documents represented with binary document formats
 Conclusion
 Introducing native gRPC endpoints to OpenSearch allowed us to close a major gap between Uber’s internal service ecosystem and its next-generation search platform.
 
-By aligning OpenSearch with the same Protobuf-based contracts used across Uber, we eliminated translation layers, simplified integrations, and unlocked meaningful performance gains—especially for high-throughput ingestion and vector-heavy search workloads. Just as importantly, we did this while preserving REST compatibility, enabling teams to migrate incrementally rather than all at once.
+By aligning OpenSearch with the same Protobuf-based contracts used across Uber, we eliminated translation layers, simplified integrations, and unlocked meaningful performance gains-especially for high-throughput ingestion and vector-heavy search workloads. Just as importantly, we did this while preserving REST compatibility, enabling teams to migrate incrementally rather than all at once.
 
 One of our biggest takeaways is that API representation is not a surface-level choice. At scale, it shapes system evolution, performance ceilings, and developer velocity. As workloads increasingly involve large payloads, streaming, and machine learning-driven queries, these considerations become even more critical.
 
@@ -157,5 +157,5 @@ OpenSearch™ is a trademark of LF Projects, LLC.
 
 
 
-Stay up to date with the latest from Uber Engineering—follow us on LinkedIn for our newest blog posts and insights.
+Stay up to date with the latest from Uber Engineering-follow us on LinkedIn for our newest blog posts and insights.
 
