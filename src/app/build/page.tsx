@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Navbar from "@/modules/components/common/navbar";
+import SiteFooter from "@/modules/components/common/site-footer";
 import { buildProjects } from "@/data/build-projects";
 
 export const metadata: Metadata = {
@@ -150,12 +151,7 @@ export default function BuildPage() {
         </div>
       </section>
 
-      <footer className="border-t border-black/15 px-5 py-8 sm:px-8 lg:px-12">
-        <div className="mx-auto flex max-w-6xl flex-col justify-between gap-4 text-xs font-medium text-black/55 sm:flex-row">
-          <span>© {new Date().getFullYear()} Backend Engineer</span>
-          <span>Backend engineering, cloud, and systems thinking in one place.</span>
-        </div>
-      </footer>
+      <SiteFooter note="Backend engineering, cloud, and systems thinking in one place." />
     </main>
   );
 }

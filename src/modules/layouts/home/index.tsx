@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Navbar from "@/modules/components/common/navbar";
+import { GitHubIcon, REPO_URL } from "@/modules/components/common/site-footer";
 import { visibleTopicGroups, topicGroupsFlat } from "@/data/topics";
 
 const Arrow = () => (
@@ -405,7 +406,16 @@ export default function Home() {
           </div>
           <div className="flex flex-col md:flex-row justify-between gap-4 text-[11px] font-mono">
             <span>© {new Date().getFullYear()} Backend Engineer. All rights reserved.</span>
-            <div className="flex gap-4">
+            <div className="flex items-center gap-4">
+              <a
+                href={REPO_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 hover:text-white transition"
+              >
+                <GitHubIcon />
+                Contribute on GitHub
+              </a>
               <span className="hover:text-white cursor-pointer transition">Privacy Policy</span>
               <span className="hover:text-white cursor-pointer transition">Terms of Service</span>
             </div>

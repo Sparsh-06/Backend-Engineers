@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import Navbar from "@/modules/components/common/navbar";
+import SiteFooter from "@/modules/components/common/site-footer";
 import StackMap from "@/modules/components/architecture/stack-map";
 import type { ArchitectureProfile } from "@/data/architecture-profiles";
 import type { ArchitectureDeepDive } from "@/data/architecture-deep-dives";
@@ -194,15 +195,14 @@ export default function CompanyProfileDetail({ profile, otherProfiles, deepDives
         </div>
       </section>
 
-      <footer className="border-t border-black/15 px-5 py-8 sm:px-8 lg:px-12">
-        <div className="mx-auto flex max-w-6xl flex-col justify-between gap-4 text-xs font-medium text-black/55 sm:flex-row">
-          <span>© {new Date().getFullYear()} Backend Engineer</span>
-          <span>
+      <SiteFooter
+        note={
+          <>
             Summarized from public engineering blogs and talks. Not affiliated
             with the companies profiled.
-          </span>
-        </div>
-      </footer>
+          </>
+        }
+      />
     </main>
   );
 }

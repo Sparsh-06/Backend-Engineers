@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import Navbar from "@/modules/components/common/navbar";
+import SiteFooter from "@/modules/components/common/site-footer";
 import PipelineFlow from "@/modules/components/architecture/pipeline-flow";
 import type { ArchitectureDeepDive } from "@/data/architecture-deep-dives";
 
@@ -118,15 +119,14 @@ export default function DeepDiveDetail({ deepDive, companyName, companySlug, com
         </div>
       </section>
 
-      <footer className="border-t border-black/15 px-5 py-8 sm:px-8 lg:px-12">
-        <div className="mx-auto flex max-w-6xl flex-col justify-between gap-4 text-xs font-medium text-black/55 sm:flex-row">
-          <span>© {new Date().getFullYear()} Backend Engineer</span>
-          <span>
+      <SiteFooter
+        note={
+          <>
             Explanatory commentary on public engineering writing. Not
             affiliated with {companyName}.
-          </span>
-        </div>
-      </footer>
+          </>
+        }
+      />
     </main>
   );
 }
