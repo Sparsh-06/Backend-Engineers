@@ -23,14 +23,3 @@ jobs:
           curl -f -sS -X PUT \
             -H "Authorization: Bearer ${{ steps.auth.outputs.access_token }}" \
             "https://searchconsole.googleapis.com/webmasters/v3/sites/$(python3 -c "import urllib.parse; print(urllib.parse.quote('${{ secrets.SITE_URL }}', safe=''))")/sitemaps/$(python3 -c "import urllib.parse; print(urllib.parse.quote('${{ secrets.SITEMAP_URL }}', safe=''))")"
-
-      - name: Ping IndexNow
-        run: |
-          curl -f -sS -X POST "https://api.indexnow.org/indexnow" \
-          -H "Content-Type: application/json" \
-          -d "{
-                \"host\": \"www.backendengineer.in\",
-                \"key\": \"${{ secrets.INDEXNOW_KEY }}\",
-                \"keyLocation\": \"https://www.backendengineer.in/${{ secrets.INDEXNOW_KEY }}.txt\",
-                \"urlList\": [\"https://www.backendengineer.in/sitemap.xml\"]
-              }"
