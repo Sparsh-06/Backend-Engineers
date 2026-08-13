@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { GitHubIcon, REPO_URL } from "@/modules/components/common/site-footer";
 
 const links = [
   { name: "Topics", href: "/topics" },
@@ -69,13 +70,24 @@ export default function Navbar() {
             ))}
           </nav>
 
-          {/* Desktop CTA */}
-          <Link
-            href="/topics"
-            className="hidden rounded-full bg-black px-4 py-2 text-xs font-semibold text-[#EEE9E3] transition hover:bg-[#ff4d00] md:block"
-          >
-            Explore topics <span>→</span>
-          </Link>
+          {/* Desktop right side: GitHub + CTA */}
+          <div className="hidden items-center gap-3 md:flex">
+            <a
+              href={REPO_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="View source on GitHub"
+              className="text-black/45 transition hover:text-black"
+            >
+              <GitHubIcon />
+            </a>
+            <Link
+              href="/topics"
+              className="rounded-full bg-black px-4 py-2 text-xs font-semibold text-[#EEE9E3] transition hover:bg-[#ff4d00]"
+            >
+              Explore topics <span>→</span>
+            </Link>
+          </div>
 
           {/* Mobile Menu Toggle */}
           <button
@@ -113,6 +125,15 @@ export default function Navbar() {
               >
                 Explore topics →
               </Link>
+              <a
+                href={REPO_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-semibold text-black/55 hover:bg-black/5"
+              >
+                <GitHubIcon />
+                GitHub
+              </a>
             </nav>
           </div>
         </div>
