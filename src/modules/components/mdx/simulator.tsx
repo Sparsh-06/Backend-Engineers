@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { STATUS_STYLES } from "@/modules/components/shared/status-styles";
 
 export type SimulatorReadout = {
   label: string;
@@ -21,12 +22,6 @@ type Props = {
   description?: string;
   label: string;
   steps: SimulatorStep[];
-};
-
-const STATUS_STYLES: Record<string, string> = {
-  good: "border-black/15 text-black",
-  warn: "border-[#ff4d00]/40 text-[#ff4d00]",
-  bad: "border-[#ff4d00] bg-[#ff4d00]/10 text-[#ff4d00]",
 };
 
 export default function Simulator({ title, description, label, steps }: Props) {

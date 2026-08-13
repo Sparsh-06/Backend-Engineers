@@ -8,6 +8,7 @@ import { GitHubIcon, REPO_URL } from "@/modules/components/common/site-footer";
 const links = [
   { name: "Topics", href: "/topics" },
   { name: "Build it", href: "/build" },
+  { name: "Canvas", href: "/canvas" },
   { name: "Concepts", href: "/concepts" },
   { name: "Architecture", href: "/architecture" },
   { name: "Cloud", href: "/cloud" },
