@@ -9,7 +9,9 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@xyflow/react": "^12.11.3",
     "gray-matter": "^4.0.3",
+    "lz-string": "^1.5.0",
     "marked": "^18.0.9",
     "next": "16.3.0",
     "next-mdx-remote": "^6.0.0",

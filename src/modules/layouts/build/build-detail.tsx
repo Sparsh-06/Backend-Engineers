@@ -2,6 +2,7 @@ import Link from "next/link";
 import Navbar from "@/modules/components/common/navbar";
 import SiteFooter from "@/modules/components/common/site-footer";
 import type { BuildProject } from "@/data/build-projects";
+import { getCanvasPreset } from "@/data/canvas-presets";
 import type { TocEntry } from "@/lib/markdown";
 import type { ReactNode } from "react";
 
@@ -16,6 +17,8 @@ type Props = {
 };
 
 export default function BuildDetail({ project, content, toc, relatedTopics, otherProjects }: Props) {
+  const canvasPreset = getCanvasPreset(project.slug);
+
   return (
     <main>
       <Navbar />
@@ -64,6 +67,15 @@ export default function BuildDetail({ project, content, toc, relatedTopics, othe
                   ))}
                 </ul>
               </div>
+
+              {canvasPreset && (
+                <Link
+                  href={`/canvas?preset=${canvasPreset.slug}`}
+                  className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-[#ff4d00] hover:underline"
+                >
+                  See this as a system diagram <span>→</span>
+                </Link>
+              )}
             </header>
 
             <div className="article-copy">
