@@ -13,8 +13,14 @@ updates:
           - "react"
           - "react-dom"
           - "@types/react*"
+        update-types:
+          - "minor"
+          - "patch"
       dev-dependencies:
         dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
 
   # Keep the GitHub Actions workflows themselves patched
   - package-ecosystem: "github-actions"
