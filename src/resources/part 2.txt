@@ -1,4 +1,4 @@
-How and Why Netflix Built a Real-Time Distributed Graph: Part 3 — Querying the graph with gRPC execution API
+How and Why Netflix Built a Real-Time Distributed Graph: Part 3 - Querying the graph with gRPC execution API
 Netflix Technology Blog
 Netflix Technology Blog
 
@@ -323,6 +323,6 @@ Think in terms of frontiers, not features. Design your APIs so callers describe 
 Filter early, not late. Every byte you fetch but don’t need is wasted I/O. Push filters and limits as close to the storage layer as possible: discard irrelevant data at each stage rather than fetching everything and trimming at the end.
 Parallelize deliberately, not by default. Unbounded concurrency feels fast until it overwhelms the systems you depend on. Set explicit limits, monitor them, and adjust dynamically: treat concurrency as a dial, not a switch.
 Treat caching as a first‑class design choice, not an afterthought. Decide what is worth remembering, for how long, and what should be allowed to fade out of memory. Match TTLs to data volatility, and don’t cache what’s about to expire.
-—
+-
 
 Thanks for reading Part 3 of the RDG blog series. For us, getting these details right is what turns a constantly changing, billion-edge graph into something that, at query time, feels like a responsive, in-memory data structure.

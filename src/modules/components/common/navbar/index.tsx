@@ -97,22 +97,22 @@ export default function Navbar() {
           <div className="overflow-hidden">
             <nav className="flex flex-col gap-1 border-t border-black/10 px-5 pt-3 pb-5">
               {links.map((link) => (
-                <a
+                <Link
                   key={link.name}
                   href={link.href}
                   onClick={(e) => handleNavClick(e, link.href)}
                   className="rounded-xl px-3 py-2.5 text-sm font-semibold text-black/80 hover:bg-black/5 cursor-pointer"
                 >
                   {link.name}
-                </a>
+                </Link>
               ))}
-              <a
+              <Link
                 href="/topics"
                 onClick={(e) => handleNavClick(e, "/topics")}
                 className="mt-2 text-center rounded-xl bg-black py-2.5 text-xs font-semibold text-[#EEE9E3] cursor-pointer"
               >
                 Explore topics →
-              </a>
+              </Link>
             </nav>
           </div>
         </div>

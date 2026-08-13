@@ -1,0 +1,23 @@
+version: 2
+updates:
+  # JS/TS dependencies (pnpm)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      next-and-react:
+        patterns:
+          - "next"
+          - "react"
+          - "react-dom"
+          - "@types/react*"
+      dev-dependencies:
+        dependency-type: "development"
+
+  # Keep the GitHub Actions workflows themselves patched
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

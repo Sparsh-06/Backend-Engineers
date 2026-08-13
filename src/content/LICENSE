@@ -1,0 +1,33 @@
+Lesson content license
+=======================
+
+Everything under `src/content/` (the `.mdx` lesson and build-project files -
+the actual written prose, explanations, and curriculum) is licensed under:
+
+  Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International
+  (CC BY-NC-ND 4.0)
+
+Full legal text: https://creativecommons.org/licenses/by-nc-nd/4.0/legalcode
+Human-readable summary: https://creativecommons.org/licenses/by-nc-nd/4.0/
+
+In short, you are free to:
+
+  - Read it, learn from it, and share links to it.
+  - Quote short excerpts with clear attribution back to
+    https://www.backendengineer.in and the original page.
+
+You may NOT, without explicit written permission:
+
+  - Republish, rehost, or redistribute the lesson text itself, in whole or in
+    reworded/derivative form, on another site, in a course, a book, a
+    newsletter, or any other product.
+  - Use the content for any commercial purpose.
+  - Train a model on this content, or use it to generate derivative content,
+    without permission.
+
+This license applies only to the written lesson content in `src/content/`.
+The code that renders it - components, the MDX pipeline, visuals, styling,
+and everything else in this repository - is MIT-licensed; see the `LICENSE`
+file at the repository root.
+
+Questions about reuse: contact@backendengineer.in

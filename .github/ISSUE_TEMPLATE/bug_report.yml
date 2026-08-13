@@ -1,0 +1,26 @@
+name: Bug or error report
+description: Broken code in a lesson, a factual error, a dead link, a build issue.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What's wrong
+      description: Be specific - which page/lesson, which code snippet, which claim.
+    validations:
+      required: true
+
+  - type: input
+    id: where
+    attributes:
+      label: Page or file
+      placeholder: "e.g. /topics/nodejs-streams or src/content/topics/nodejs-streams.mdx"
+    validations:
+      required: false
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What it should say or do instead
+    validations:
+      required: false

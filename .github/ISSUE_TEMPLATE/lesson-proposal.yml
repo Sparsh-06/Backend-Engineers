@@ -1,0 +1,63 @@
+name: Propose a new lesson
+description: Propose a new topic before writing it. Required before any new lesson-content PR.
+labels: ["content proposal"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Read [CONTRIBUTING.md](../../CONTRIBUTING.md) first - new lesson content only gets
+        accepted through this process, not as an unsolicited PR. Fill this in, wait for a
+        response on scope and angle, then write.
+
+  - type: input
+    id: title
+    attributes:
+      label: Proposed lesson title
+      placeholder: "e.g. Database connection pooling, explained simply"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: group
+    attributes:
+      label: Which curriculum group does this belong to?
+      options:
+        - Backend fundamentals
+        - Node.js runtimes
+        - Protocols & APIs
+        - Data storage (planned, not yet published)
+        - Distributed architecture (planned, not yet published)
+        - Cloud & platform (planned, not yet published)
+        - Production scenarios (planned, not yet published)
+        - Something else / not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: outline
+    attributes:
+      label: Rough outline
+      description: A few bullet points on what the lesson would actually cover - the real sections, not just "explain X."
+      placeholder: |
+        - The problem this solves
+        - The concrete mechanism (real APIs/behavior, not hand-waving)
+        - The common mistake people make
+        - Where it connects to an existing lesson
+    validations:
+      required: true
+
+  - type: textarea
+    id: gap
+    attributes:
+      label: What gap does this fill?
+      description: Why does this need its own lesson instead of being a paragraph in an existing one?
+    validations:
+      required: true
+
+  - type: textarea
+    id: visual
+    attributes:
+      label: Does this need an interactive visual?
+      description: If so, roughly what kind (request-flow, comparison, timeline, code walkthrough, simulator) - optional.
+    validations:
+      required: false

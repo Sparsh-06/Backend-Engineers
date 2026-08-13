@@ -138,6 +138,7 @@ export default function BuildPage() {
                   </span>
                 ))}
               </div>
+              <br />
               <div className="mt-auto flex items-center justify-between border-t border-black/10 pt-5 text-xs font-semibold uppercase tracking-wider">
                 <span>Start building</span>
                 <span className="text-lg transition-transform group-hover:translate-x-1 group-hover:-translate-y-1">
