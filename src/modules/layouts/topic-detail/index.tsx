@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import Navbar from "@/modules/components/common/navbar";
 import SiteFooter from "@/modules/components/common/site-footer";
@@ -20,6 +21,8 @@ type TopicDetailProps = {
   groupTopics: RelatedTopic[];
   relatedTopics: RelatedTopic[];
   visual?: TopicVisual;
+  /** Per-topic hero diagram (a real PNG under /public), distinct from the interactive `visual`. */
+  image?: string;
   /** Pre-rendered MDX/Markdown content. When present, replaces the auto-generated copy. */
   content?: ReactNode | null;
   /** Headings extracted from the markdown, used for the right sidebar ToC. */
@@ -84,6 +87,7 @@ export default function TopicDetail(props: TopicDetailProps) {
     groupTopics,
     relatedTopics,
     visual,
+    image,
     content,
     markdownToc = [],
   } = props;
@@ -174,6 +178,19 @@ export default function TopicDetail(props: TopicDetailProps) {
                 ))}
               </div>
             </header>
+
+            {image && (
+              <div className="mt-8 overflow-hidden rounded-2xl border border-black/15">
+                <Image
+                  src={image}
+                  alt={`${title} - diagram`}
+                  width={1200}
+                  height={630}
+                  className="h-auto w-full"
+                  priority
+                />
+              </div>
+            )}
 
             <div className="article-copy">
               {hasMarkdown ? (

@@ -4,6 +4,8 @@ export type TopicItem = {
   description: string;
   keywords: string[];
   phase: string;
+  /** Path under /public to a per-topic hero image, e.g. "/topics/slug/diagram.png". */
+  image?: string;
   /** Hero visual, rendered above the lesson body. */
   visual?: TopicVisual;
   /**

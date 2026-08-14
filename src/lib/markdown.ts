@@ -37,6 +37,8 @@ export type TopicFrontmatter = {
   keywords: string[];
   phase: string;
   group: string;
+  /** Path under /public to a per-topic hero image, e.g. "/topics/slug/diagram.png". */
+  image?: string;
 };
 
 export type TocEntry = {

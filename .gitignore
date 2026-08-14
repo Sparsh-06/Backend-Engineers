@@ -28,6 +28,9 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# topic-image preview renders — scratch output, not the final per-topic asset
+/scripts/topic-image/output.png
 .pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)
