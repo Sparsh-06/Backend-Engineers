@@ -115,6 +115,7 @@ export default async function TopicPage({
 
   const articleTitle = markdown?.frontmatter.title ?? topic.title;
   const articleDescription = markdown?.frontmatter.description ?? topic.description;
+  const articleImage = markdown?.frontmatter.image ?? topic.image;
   const dateModified = markdown?.lastModified ?? "2026-08-05T00:00:00.000Z";
   const articleSchema = {
     "@context": "https://schema.org",
@@ -122,6 +123,7 @@ export default async function TopicPage({
     headline: articleTitle,
     description: articleDescription,
     url: pageUrl,
+    ...(articleImage ? { image: `https://www.backendengineer.in${articleImage}` } : {}),
     mainEntityOfPage: { "@type": "WebPage", "@id": pageUrl },
     inLanguage: "en",
     datePublished: dateModified,
@@ -164,6 +166,7 @@ export default async function TopicPage({
         groupTopics={group.topics}
         relatedTopics={relatedTopics}
         visual={topic.visual}
+        image={articleImage}
         content={markdown?.content ?? null}
         markdownToc={markdownToc}
       />

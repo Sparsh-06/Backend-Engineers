@@ -1,0 +1,158 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  :root {
+    --cream: #EEE9E3;
+    --orange: #ff4d00;
+    --ink: #050505;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: transparent; }
+  body { font-family: Arial, sans-serif; }
+  .mono { font-family: "SFMono-Regular", Consolas, monospace; }
+
+  #canvas {
+    width: 1200px;
+    height: 630px;
+    position: relative;
+    background: var(--cream);
+    overflow: hidden;
+  }
+
+  .kicker {
+    position: absolute;
+    top: 44px;
+    left: 56px;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--orange);
+  }
+
+  .wires { position: absolute; inset: 0; }
+  .wire { fill: none; stroke: rgba(0,0,0,0.3); stroke-width: 2.5; }
+
+  .client {
+    position: absolute;
+    left: 50px;
+    top: 250px;
+    width: 150px;
+    height: 90px;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.78);
+    border: 1.5px solid rgba(0,0,0,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .client .label { font-size: 22px; font-weight: 700; color: var(--ink); }
+
+  .lb {
+    position: absolute;
+    left: 250px;
+    top: 259px;
+    width: 72px;
+    height: 72px;
+    border-radius: 18px;
+    background: var(--ink);
+    color: var(--cream);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .server {
+    position: absolute;
+    left: 520px;
+    width: 230px;
+    height: 84px;
+    border-radius: 18px;
+    background: rgba(255,255,255,0.78);
+    border: 1.5px solid rgba(0,0,0,0.15);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+  .server .label { font-size: 21px; font-weight: 700; color: var(--ink); }
+  .server .sub { font-size: 12px; letter-spacing: 0.04em; color: rgba(0,0,0,0.45); }
+
+  .req-badge {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    border-radius: 999px;
+    background: var(--orange);
+    color: var(--cream);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .caption {
+    position: absolute;
+    left: 56px;
+    bottom: 48px;
+    max-width: 900px;
+    font-size: 19px;
+    line-height: 1.5;
+    color: rgba(0,0,0,0.55);
+  }
+  .caption b { color: var(--ink); }
+</style>
+</head>
+<body>
+
+  <div id="canvas">
+    <p class="kicker">Phase 0 · Backend Fundamentals</p>
+
+    <svg class="wires" viewBox="0 0 1200 630">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(0,0,0,0.4)" />
+        </marker>
+      </defs>
+      <path class="wire" d="M 200 295 L 250 295" marker-end="url(#arrow)" />
+      <path class="wire" d="M 322 280 Q 420 200 520 172" marker-end="url(#arrow)" />
+      <path class="wire" d="M 322 295 L 520 295" marker-end="url(#arrow)" />
+      <path class="wire" d="M 322 310 Q 420 400 520 428" marker-end="url(#arrow)" />
+    </svg>
+
+    <div class="client">
+      <div class="label">Client</div>
+    </div>
+
+    <div class="lb">LB</div>
+
+    <div class="req-badge" style="left:395px; top:180px;">1</div>
+    <div class="req-badge" style="left:395px; top:280px;">2</div>
+    <div class="req-badge" style="left:395px; top:380px;">3</div>
+
+    <div class="server" style="top:90px;">
+      <div class="label">Server A</div>
+      <div class="sub mono">remembers nothing</div>
+    </div>
+    <div class="server" style="top:253px;">
+      <div class="label">Server B</div>
+      <div class="sub mono">remembers nothing</div>
+    </div>
+    <div class="server" style="top:416px;">
+      <div class="label">Server C</div>
+      <div class="sub mono">remembers nothing</div>
+    </div>
+
+    <p class="caption">
+      Three requests, three different servers - and it still works, because <b>no server remembers who you are</b>. That's the one property that makes horizontal scaling not a coordination nightmare.
+    </p>
+  </div>
+
+</body>
+</html>
