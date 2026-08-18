@@ -29,7 +29,7 @@ export async function generateMetadata({
   const canonical = `/architecture/${company}`;
 
   return {
-    title: `${title} | ${siteName}`,
+    title,
     description,
     keywords: profile.seoKeywords,
     alternates: { canonical },

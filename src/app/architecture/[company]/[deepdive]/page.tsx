@@ -30,7 +30,7 @@ export async function generateMetadata({
   const canonical = `/architecture/${company}/${deepdive}`;
 
   return {
-    title: `${title} | ${siteName}`,
+    title,
     description,
     keywords: deepDive.seoKeywords,
     alternates: { canonical },

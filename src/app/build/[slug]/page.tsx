@@ -25,7 +25,8 @@ export async function generateMetadata({
     return { title: "Project not found" };
   }
 
-  const title = `${project.title} | ${siteName}`;
+  const title = project.title;
+  const fullTitle = `${title} | ${siteName}`;
   const canonical = `/build/${slug}`;
 
   return {
@@ -48,7 +49,7 @@ export async function generateMetadata({
       },
     },
     openGraph: {
-      title,
+      title: fullTitle,
       description: project.description,
       type: "article",
       siteName,
@@ -56,7 +57,7 @@ export async function generateMetadata({
     },
     twitter: {
       card: "summary_large_image",
-      title,
+      title: fullTitle,
       description: project.description,
     },
   };
