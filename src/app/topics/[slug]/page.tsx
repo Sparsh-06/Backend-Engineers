@@ -35,7 +35,7 @@ export async function generateMetadata({
   const canonical = `/topics/${slug}`;
 
   return {
-    title: `${title} | ${siteName}`,
+    title,
     description: `${description} Part of the ${topic.groupTitle.toLowerCase()} learning path.`,
     keywords,
     alternates: {
