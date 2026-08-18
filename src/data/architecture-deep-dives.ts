@@ -352,6 +352,97 @@ export const architectureDeepDives: ArchitectureDeepDive[] = [
     sourceNote:
       "This page explains, in plain language, the architecture described in Uber's own engineering blog post credited to Karen Xu, Xi Lu, and Shuyi Zhang. All credit for the original work, research, and writing belongs to them and Uber - this is our own explanation of the same publicly documented architecture, not a copy of their text.",
   },
+  {
+    slug: "cassandra-to-scylladb",
+    companySlug: "discord",
+    title: "How Discord migrated trillions of messages to a new database with zero downtime",
+    tagline: "Nine days, 3.2 million messages a second, and a migration most teams would block off a maintenance window for",
+    seoKeywords: [
+      "discord scylladb migration",
+      "discord cassandra database",
+      "how discord stores messages",
+      "discord message storage architecture",
+      "cassandra vs scylladb",
+      "discord database architecture",
+      "zero downtime database migration",
+      "discord trillions of messages",
+      "hot partition cassandra",
+    ],
+    intro:
+      "Discord's message store grew from 12 Cassandra nodes holding billions of messages in 2017 to 177 nodes holding trillions of messages by early 2022. That growth on its own wasn't the problem - Cassandra is built to scale by adding nodes. The real problem was the shape of Discord's traffic: a small number of massive communities were hammering individual partitions hard enough to degrade the whole cluster, and the maintenance burden of keeping it healthy had become a genuine weekend-ruining, on-call nightmare. Discord's engineering team's fix wasn't to tune Cassandra harder - it was to migrate the entire message store to a different database, without downtime, in nine days.",
+    keyTermsUsed: [
+      { term: "Hot partition", definition: "A single partition - one chat channel and time bucket, in Cassandra's case - receiving far more traffic than the rest of the cluster, becoming a bottleneck the other nodes can't help absorb." },
+      { term: "Quorum consistency", definition: "A read or write only counts as successful once a majority of replica nodes confirm it - trading a little latency for confidence the data is correct, but also meaning one struggling replica slows down every request that touches it." },
+      { term: "Compaction", definition: "Background work a database does to merge and clean up the files it's written to disk over time. When it falls behind under heavy write load, both reads and writes get slower until it catches up." },
+      { term: "Shard-per-core architecture", definition: "Instead of many threads competing over shared memory and locks, one execution shard is pinned to each CPU core, each handling its own slice of the data independently - removing a whole category of coordination overhead." },
+    ],
+    pipeline: [
+      { label: "Cassandra (source)", detail: "177 nodes holding trillions of messages, read token range by token range instead of table by table.", stat: "~4TB/node" },
+      { label: "Checkpoint", detail: "Progress through each token range is saved locally in SQLite, so a crash or restart resumes from where it left off instead of starting over." },
+      { label: "Stream to ScyllaDB", detail: "Rows stream directly into ScyllaDB as they're read, with dual writes keeping both databases in sync for anything written mid-migration.", stat: "3.2M msgs/sec" },
+      { label: "Validate", detail: "A slice of production reads is sent to both databases and compared automatically, catching mismatches before anyone trusts the new system." },
+      { label: "ScyllaDB (live)", detail: "72 nodes serving all message traffic after cutover - fewer nodes, more headroom per node.", stat: "p99 15ms reads" },
+    ],
+    sections: [
+      {
+        heading: "The problem: growth wasn't the issue, hot partitions were",
+        body: [
+          "Discord's message store grew from 12 Cassandra nodes holding billions of messages in 2017 to 177 nodes holding trillions by early 2022. Raw growth is the normal case Cassandra is designed for, handled by adding more nodes. What actually hurt was the shape of Discord's traffic, not its size.",
+          "Small friend servers generate almost no traffic. Massive communities with hundreds of thousands of members generate an enormous amount of it, concentrated into the same channel and time bucket. That unevenness created hot partitions - individual partitions serving disproportionate load while most of the cluster sat comfortably underused. Discord's engineers described watching a single channel-and-bucket pair pull in enough traffic that the one node responsible for it degraded under the strain, tried harder to keep up, and degraded further.",
+        ],
+      },
+      {
+        heading: "Why a hot partition doesn't stay contained to one node",
+        body: [
+          "In a system with looser consistency guarantees, a struggling node might just serve slightly stale data while it catches up. Discord's message reads and writes use quorum consistency instead, which means a majority of replica nodes have to confirm before an operation counts as done. That's a deliberate trade: it buys confidence the data is correct, but it also means every query touching a hot partition's replicas slows down together, not just the one overloaded node - a local problem turning into a cluster-wide one.",
+          "On top of that, Cassandra's Java-based garbage collector added its own periodic latency spikes, and when write-heavy periods pushed compaction behind schedule, engineers had to manually intervene - Discord's team described this as a 'gossip dance' of coaxing overloaded nodes back to health. The system worked, but it demanded constant, high-toil attention, and weekends were when it usually asked for it.",
+        ],
+      },
+      {
+        heading: "Why ScyllaDB, specifically, and not just 'a faster database'",
+        body: [
+          "Discord didn't pick ScyllaDB because it benchmarked faster in the abstract - they picked it because it removed the two specific mechanisms causing their pain. ScyllaDB is written in C++, not Java, which means no garbage collector and no GC pauses to tune around. And it uses a shard-per-core architecture: rather than many threads competing over shared memory and locks, each CPU core gets its own dedicated shard handling its own slice of the data, cutting out a whole category of coordination overhead that Cassandra's design carries.",
+          "It also wasn't a leap into the unknown - ScyllaDB was already running in production across the rest of Discord's databases by 2020, and it speaks the same query language and wire protocol as Cassandra, so the migration didn't require rewriting how every service talked to its data store.",
+        ],
+      },
+      {
+        heading: "Rust in front of the database, not just an API behind it",
+        body: [
+          "Discord built an intermediary layer - their data services - written in Rust, sitting between the API and the database cluster. Two design choices there are worth understanding on their own, separate from the migration itself.",
+          "Request coalescing: when many simultaneous requests ask for the exact same data, only one actually queries the database - every other request just subscribes to that same in-flight result. Consistent hash routing sends requests carrying the same key (a channel ID, for messages) to the same service instance every time, which is what makes coalescing effective in the first place - without it, identical requests could land on different instances and never get the chance to share a result. Picture an @everyone announcement in a huge server: without this, that single message could trigger tens of thousands of near-identical reads hitting the database at once. With it, most of them share one answer.",
+          "Rust was a deliberate choice for this layer too - Discord's engineers wanted C-level speed without giving up memory safety, building on the Tokio async runtime for the I/O-heavy, highly concurrent workload this layer handles all day.",
+        ],
+      },
+      {
+        heading: "Rejecting the obvious plan for a harder, faster one",
+        body: [
+          "The first migration plan was the intuitive one: new messages go to ScyllaDB from a cutoff date forward, older messages stay in Cassandra, and application code checks both depending on a message's age. Estimated timeline: about three months. Discord's team rejected it - not because it wouldn't work, but because it would leave two databases to maintain indefinitely and push real complexity into every service that reads messages, permanently, instead of paying a one-time migration cost.",
+          "Instead, they extended their existing Rust data services library to do the migration itself: read a token range from Cassandra, checkpoint progress locally in SQLite so a restart resumes instead of starting over, stream the rows into ScyllaDB, and validate automatically as it goes. That approach moved at roughly 3.2 million messages a second - trillions of messages, migrated in nine days instead of three months.",
+        ],
+      },
+      {
+        heading: "The last 0.0001%, and trusting the result before cutting over",
+        body: [
+          "Nearly the entire migration finished cleanly, but a small fraction - about 0.0001% of the data - got stuck on token ranges sitting behind enormous tombstones (Cassandra's markers for deleted data, which the engine still has to scan past). One targeted compaction operation cleared it.",
+          "Before ever routing real traffic to ScyllaDB, Discord ran dual writes - every new message went to both databases simultaneously - and sent a slice of production reads to both, comparing the results automatically. Only after that validation passed quietly for a stretch did the actual cutover happen, in May 2022.",
+        ],
+      },
+      {
+        heading: "The numbers, and the proof that held up under real load",
+        body: [
+          "The infrastructure got smaller and faster at the same time: 177 Cassandra nodes became 72 ScyllaDB nodes, each now holding roughly 9TB instead of 4TB. Historical message fetches dropped from a 40-125ms p99 on Cassandra to a steady 15ms on ScyllaDB. Message inserts went from a 5-70ms p99 down to a steady 5ms - notice the word 'steady' in both cases: the bigger win wasn't just the average getting faster, it was the worst case becoming predictable.",
+          "The real test came months later, during the 2022 FIFA World Cup final - Discord's engineers watched message traffic spike at each of the match's nine key moments (goals, halftime, extra time, the penalty shootout), and the database handled every spike without the degradation the old system would have shown. That's the kind of validation a synthetic load test can't fully substitute for.",
+        ],
+      },
+    ],
+    takeaway:
+      "The real lesson here isn't 'ScyllaDB is faster than Cassandra' - it's that Discord diagnosed the exact mechanism causing their pain (hot partitions colliding with quorum consistency and GC pauses) before picking a fix, then built purpose-made tooling instead of accepting a slower, permanently messier migration plan just because it was the default one. The transferable lesson: when a system is genuinely hurting, understand precisely which mechanism is responsible before reaching for a bigger version of the same tool.",
+    sourceTitle: "How Discord Stores Trillions of Messages",
+    sourceAuthors: ["Bo Ingram"],
+    sourceUrl: "https://discord.com/blog/how-discord-stores-trillions-of-messages",
+    sourceNote:
+      "This page explains, in plain language, the architecture and migration described in Discord's own engineering blog post, written by Bo Ingram, Senior Staff Software Engineer at Discord. All credit for the original work, research, and writing belongs to him and Discord - this is our own explanation of the same publicly documented migration, not a copy of their text.",
+  },
 ];
 
 export function getDeepDivesForCompany(companySlug: string) {

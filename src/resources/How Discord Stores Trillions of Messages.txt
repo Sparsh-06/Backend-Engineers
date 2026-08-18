@@ -1,0 +1,72 @@
+Source: How Discord Stores Trillions of Messages
+Author: Bo Ingram, Senior Staff Software Engineer @ Discord
+Published: March 6, 2023
+URL: https://discord.com/blog/how-discord-stores-trillions-of-messages
+
+--- Scale & configuration ---
+2017: 12 Cassandra nodes storing billions of messages
+Early 2022: 177 nodes storing trillions of messages
+Average storage per node: ~4 TB
+
+--- The Cassandra problem ---
+Hot partitions: small friend servers generated minimal traffic, while large communities with
+hundreds of thousands of users created hot partitions - individual partitions receiving
+disproportionate traffic. Quote: "One channel and bucket pair received a large amount of
+traffic, and latency in the node would increase as the node tried harder and harder to serve
+traffic."
+
+Cascading latency: Discord uses quorum consistency for reads/writes, so "all queries to the
+nodes that serve the hot partition suffer latency increases, resulting in broader end-user
+impact."
+
+Maintenance burden: garbage collection pauses caused latency spikes; compaction backlogs
+required manual intervention via "gossip dance" operations; system was high-toil with frequent
+on-call pages; JVM tuning consumed substantial engineering resources.
+
+--- Why ScyllaDB ---
+C++ (no GC pauses) vs Java. Shard-per-core architecture for workload isolation. Superior
+repair performance. Already production-proven across all other Discord databases by 2020.
+ScyllaDB team implemented performant reverse queries, addressing a blocker for Discord's scan
+operations.
+
+--- Architecture: Data Services layer (Rust) ---
+Request coalescing: multiple simultaneous requests for identical data trigger a single database
+query; subsequent requests subscribe to that worker task's result.
+Consistent hash routing: routing keys (channel IDs for messages) direct requests to the same
+service instance, amplifying coalescing effectiveness (e.g. an @everyone announcement).
+
+--- Migration execution ---
+Initial plan (rejected): time-based cutover, new data -> ScyllaDB, historical data -> Cassandra.
+Estimated 3 months; too slow and unnecessarily complex.
+
+Optimized approach: extended Rust data service library for large-scale migration - read token
+ranges from source database, checkpoint via SQLite locally, stream to ScyllaDB with automated
+validation.
+Rate: 3.2 million messages per second. Timeline: 9 days instead of 3 months.
+Edge case: final ~0.0001% stuck on gigantic tombstone ranges; one compaction operation resolved
+it.
+Verification: automated validation sent a small percentage of production reads to both
+databases, comparing results before cutover (May 2022).
+
+--- Results ---
+Infrastructure: 177 Cassandra nodes -> 72 ScyllaDB nodes (59% reduction). Per-node storage:
+4 TB -> 9 TB.
+Historical message fetches: Cassandra p99 40-125ms -> ScyllaDB p99 15ms.
+Message inserts: Cassandra p99 5-70ms -> ScyllaDB p99 steady 5ms.
+Operational impact: eliminated weekend firefighting, no cascading node failures, system
+described as "quiet, well-behaved."
+
+--- Notable quote ---
+On choosing Rust: "it gave us fast C/C++ speeds without having to sacrifice safety." Tokio
+ecosystem provided async I/O with driver support for both Cassandra and ScyllaDB. "Once it
+compiled, it generally works."
+
+--- Real-world validation ---
+During the 2022 FIFA World Cup final, Discord monitored message traffic spikes corresponding to
+nine match events (goals, halftime, extra time, penalty shootout). Database handled sustained
+high-volume traffic without performance degradation.
+
+NOTE: This is our own archival research summary of Discord's public engineering blog post,
+kept for provenance/fact-checking. All credit for the original work belongs to Bo Ingram and
+Discord. The site's deep-dive page explaining this architecture is not a copy of Discord's
+text - see src/data/architecture-deep-dives.ts, slug "cassandra-to-scylladb".
