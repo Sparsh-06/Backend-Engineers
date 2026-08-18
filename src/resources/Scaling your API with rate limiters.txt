@@ -1,0 +1,52 @@
+Source: Scaling your API with rate limiters
+Author: Paul Tarjan, Engineering @ Stripe
+Published: March 30, 2017
+URL: https://stripe.com/blog/rate-limiters
+
+--- Why Stripe needed rate limiting ---
+1. Individual users causing traffic spikes that threatened service for others
+2. Misbehaving scripts (accidental or intentional) sending excessive requests
+3. Lower-priority requests (analytics queries) impacting critical traffic (transactions)
+4. Internal system failures requiring selective traffic dropping to maintain core operations
+
+--- Four production rate limiters ---
+
+1. Request Rate Limiter
+Restricts each user to N requests per second. Most heavily used limiter, rejecting millions of
+requests a month, especially in test mode. Burst capacity allowance for real-time events (e.g.
+flash sales). Applied identically in test and live modes for consistent developer experience.
+Algorithm: token bucket, implemented via Redis (or AWS ElastiCache) - centralized bucket per
+user, tokens removed per request, replenished gradually; empty bucket = rejection.
+
+2. Concurrent Requests Limiter
+Enforces a maximum of simultaneous in-flight requests per user (example given: 20 concurrent
+requests). Addresses resource contention on CPU-intensive endpoints. Triggered far less
+frequently (~12,000 rejections/month) but fixed persistent performance issues on expensive
+endpoints that per-second limiting alone didn't catch. Encourages clients to queue work and
+back off instead of hammer-and-retry.
+
+3. Fleet Usage Load Shedder
+Reserves a fraction of infrastructure for critical requests. Divides traffic into critical
+methods (e.g. charge creation) and non-critical methods (e.g. listing charges). Uses a Redis
+cluster to track request types. Example: reserves 20% of capacity exclusively for critical
+operations; non-critical requests exceeding their 80% allocation get 503 responses. Proactive,
+not reactive to any single user's behavior.
+
+4. Worker Utilization Load Shedder
+"Final line of defense" during major incidents. Categorizes traffic into four priorities:
+critical methods, POSTs, GETs, and test mode. Monitors worker capacity; when overloaded,
+progressively sheds low-priority traffic starting with test mode, then GETs, then POSTs, then
+critical methods if still degraded. Carefully tuned to shed and restore load gradually over
+minutes to avoid "flapping" (rapid oscillation between shedding and restoring). ~100
+rejections/month, rarely triggered except during major incidents.
+
+--- Implementation considerations ---
+- Hook into middleware stack safely with exception handling to "fail open" - if the rate
+  limiter's own dependency (Redis) fails, requests are let through rather than blocked.
+- Feature flags allow disabling a misbehaving limiter on demand.
+- Stripe published a GitHub gist with production-based code samples.
+
+NOTE: This is our own archival research summary of Stripe's public engineering blog post, kept
+for provenance/fact-checking. All credit for the original work belongs to Paul Tarjan and
+Stripe. The site's deep-dive page explaining this architecture is not a copy of Stripe's text -
+see src/data/architecture-deep-dives.ts, slug "rate-limiters".
