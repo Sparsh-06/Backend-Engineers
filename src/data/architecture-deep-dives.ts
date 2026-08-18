@@ -443,6 +443,89 @@ export const architectureDeepDives: ArchitectureDeepDive[] = [
     sourceNote:
       "This page explains, in plain language, the architecture and migration described in Discord's own engineering blog post, written by Bo Ingram, Senior Staff Software Engineer at Discord. All credit for the original work, research, and writing belongs to him and Discord - this is our own explanation of the same publicly documented migration, not a copy of their text.",
   },
+  {
+    slug: "rate-limiters",
+    companySlug: "stripe",
+    title: "How Stripe runs four different rate limiters, not just one",
+    tagline: "A single token bucket stops the easy attacks - real production traffic needed three more layers behind it",
+    seoKeywords: [
+      "stripe rate limiter architecture",
+      "stripe api rate limiting",
+      "how stripe rate limits requests",
+      "token bucket rate limiter",
+      "stripe load shedding",
+      "concurrent request limiter",
+      "api rate limiting strategies",
+      "rate limiter system design",
+      "how to design an api rate limiter",
+    ],
+    intro:
+      "Most rate limiters answer one question: how many requests per second is a user allowed? Stripe's engineering team found that question alone doesn't protect payments infrastructure. A user could stay under any per-second limit while still keeping dozens of expensive requests running at once. A low-priority analytics query and a live charge-creation call look identical to a limiter that only counts requests. And when something inside Stripe's own infrastructure degrades, rejecting traffic evenly across every endpoint is exactly the wrong response. Their answer was to run four separate rate limiters in production, each one built to catch a specific failure mode the others miss.",
+    keyTermsUsed: [
+      { term: "Token bucket", definition: "A rate-limiting algorithm where each user has a bucket of tokens that drains with each request and refills at a steady rate. An empty bucket means the next request gets rejected until it refills - simple to reason about, and it naturally tolerates short bursts as long as tokens are banked up." },
+      { term: "Load shedding", definition: "Deliberately rejecting some requests during an overload, on purpose, so the system stays available for everyone else. The alternative - accepting everything until the whole fleet falls over - is worse for every user, not just the ones turned away." },
+      { term: "Fail open", definition: "Designing a safety mechanism so that if it breaks, it lets traffic through instead of blocking everything. A rate limiter that depends on a cache being reachable needs a plan for what happens when that cache is down - and 'let requests through' is usually the safer failure mode than 'reject everything.'" },
+      { term: "Flapping", definition: "Rapidly oscillating between two states - shedding load, then restoring it, then shedding it again - because a system reacted too fast to a brief spike instead of a real sustained trend." },
+    ],
+    pipeline: [
+      { label: "Request Rate Limiter", detail: "First line of defense - each user gets N requests per second via a token bucket, with burst room for legitimate spikes.", stat: "millions rejected/mo" },
+      { label: "Concurrent Requests Limiter", detail: "Caps how many of one user's requests can be in flight at once, protecting CPU-heavy endpoints from parallel hammering.", stat: "~12,000 rejections/mo" },
+      { label: "Fleet Usage Load Shedder", detail: "Reserves a fixed slice of total infrastructure capacity for critical requests, shedding excess non-critical traffic before it can crowd them out." },
+      { label: "Worker Utilization Load Shedder", detail: "Last line of defense during real incidents - sheds test-mode traffic first, then GETs, then POSTs, before ever touching critical methods.", stat: "~100 rejections/mo" },
+      { label: "Fail open", detail: "Every limiter is wrapped so a cache failure lets requests through instead of blocking the entire API." },
+    ],
+    sections: [
+      {
+        heading: "The problem: one rate limiter isn't enough once you're payments infrastructure",
+        body: [
+          "Stripe's engineers point to four distinct scenarios a single rate limiter doesn't cover: an individual user's traffic spike threatening service for everyone else, a misbehaving script sending far more requests than intended, lower-priority requests like analytics queries crowding out critical transaction traffic, and internal failures where the system needs to selectively drop some traffic just to keep functioning at all.",
+          "The common thread is that a limiter which only asks 'how many requests per second' treats every one of those situations identically - and for a company processing real financial transactions, a query listing someone's past charges and a request creating a new charge genuinely aren't the same kind of traffic, even though a naive rate limiter can't tell them apart.",
+        ],
+      },
+      {
+        heading: "Layer one: a token bucket, tuned for bursts, not just averages",
+        body: [
+          "The Request Rate Limiter is Stripe's most heavily used layer, restricting each user to a set number of requests per second. It's built on the token bucket algorithm specifically rather than a stricter fixed-window count, because a token bucket naturally tolerates short bursts - a legitimate spike, like traffic during a real-time sale event - as long as a user has tokens banked up, instead of punishing them the instant they cross a strict per-second line.",
+          "It's applied identically in test mode and live mode, so a developer sees the same rate-limiting behavior during development that they'll hit in production - catching a badly-behaved integration before it ships, not after. This is the limiter doing the most work day to day: Stripe describes it rejecting millions of requests a month, the large majority of them in test mode.",
+        ],
+      },
+      {
+        heading: "Layer two: limiting concurrency, not just rate",
+        body: [
+          "Rate alone doesn't catch everything. A user could stay comfortably under a per-second limit while still keeping dozens of expensive requests in flight simultaneously, each one chewing through CPU on a heavy endpoint. The Concurrent Requests Limiter caps how many of one user's requests can be active at the same time instead of how many arrive per second.",
+          "That change in what's being measured changes how clients end up behaving, too: hammering the API and retrying immediately stops working once concurrency itself is capped, which nudges well-built clients toward queuing work and backing off instead. This limiter triggers far less often than the request-rate layer - Stripe cites roughly 12,000 rejections a month - but credits it with fixing persistent performance problems on their most CPU-intensive endpoints that per-second limiting alone never caught.",
+        ],
+      },
+      {
+        heading: "Layer three: reserving capacity before anyone even hits a wall",
+        body: [
+          "The Fleet Usage Load Shedder works proactively rather than reacting to any single user's behavior. Traffic gets split into critical methods (creating a charge) and non-critical methods (listing past charges), and a fixed share of total fleet capacity is reserved specifically for critical traffic - Stripe's own example reserves 20% of capacity for critical requests, leaving non-critical traffic an 80% share to work within.",
+          "Once non-critical traffic exceeds its allotted share, it starts getting shed with a 503 - even if critical traffic is nowhere near overloading the system on its own. The point isn't to wait for an actual overload before protecting what matters most; it's to make sure charge creation can never be crowded out by a flood of listing requests, structurally, before that crowding ever becomes a real incident.",
+        ],
+      },
+      {
+        heading: "Layer four: the last line of defense, tuned to avoid making things worse",
+        body: [
+          "The Worker Utilization Load Shedder is the layer that only fires during genuine incidents. It monitors real-time capacity across the fleet, and when things degrade, it sheds traffic progressively in priority order: test-mode traffic first, then GET requests, then POSTs, and only critical methods if the system is still struggling after shedding everything less important.",
+          "The subtler engineering problem here is flapping - reacting too fast to a brief spike can cause a system to oscillate between shedding and restoring load in a way that's worse than doing nothing at all. Stripe tuned this layer to shed and recover gradually, over a period of minutes, specifically to avoid that oscillation. It's the least-triggered limiter of the four - around 100 rejections a month - because it exists purely for the worst days, not the routine ones.",
+        ],
+      },
+      {
+        heading: "The quiet detail that makes any of this safe to run: failing open",
+        body: [
+          "Every one of these four limiters depends on infrastructure - a shared cache - that can itself fail. Stripe wrapped each limiter's logic in explicit exception handling so that if the rate limiter's own dependency breaks, requests are let through rather than blocked, backed by feature flags that can disable a misbehaving limiter immediately.",
+          "The lesson underneath that detail generalizes well beyond rate limiting: a safety system that can itself become the outage is worse than having no safety system at all. The correct default failure mode for something optional is 'get out of the way,' not 'block everything.'",
+        ],
+      },
+    ],
+    takeaway:
+      "Stripe's rate limiting isn't one clever algorithm - it's four separate, purpose-built layers, each catching a failure mode a single token bucket alone would miss: raw request rate, concurrency per user, proactive capacity reservation for what matters most, and a last-resort shedder specifically tuned to avoid making incidents worse through flapping. All of it is deliberately built to fail open, because a protection mechanism that can itself take down the whole API isn't actually protecting anything. The transferable lesson: 'add a rate limiter' is really four different questions, and most systems only ever answer the first one.",
+    sourceTitle: "Scaling your API with rate limiters",
+    sourceAuthors: ["Paul Tarjan"],
+    sourceUrl: "https://stripe.com/blog/rate-limiters",
+    sourceNote:
+      "This page explains, in plain language, the rate limiting architecture described in Stripe's own engineering blog post, written by Paul Tarjan. All credit for the original work, research, and writing belongs to him and Stripe - this is our own explanation of the same publicly documented system, not a copy of their text.",
+  },
 ];
 
 export function getDeepDivesForCompany(companySlug: string) {
