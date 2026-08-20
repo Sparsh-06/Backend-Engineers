@@ -61,7 +61,22 @@ export default function Home() {
         <div className="mx-auto flex w-full max-w-6xl flex-col justify-between">
           <div className="grid items-center gap-8 lg:grid-cols-[1.15fr_.85fr] lg:gap-4">
             <div className="max-w-4xl">
-              <div className="mb-8 flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.18em] text-black/55">
+              <div className="mb-8 flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-[0.18em] text-black/55">
+                <a
+                  href="https://www.producthunt.com/products/backend-engineer?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-backend-engineer"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1227185&theme=light&t=1787249936641"
+                    alt="Backend Engineer - Backend engineering, explained visually | Product Hunt"
+                    width={150}
+                    height={32}
+                    className="h-7 w-auto"
+                  />
+                </a>
                 Backend engineering, explained visually
               </div>
               <h1 className="max-w-4xl text-balance font-semibold text-[clamp(3.5rem,9vw,8rem)] leading-[0.88] tracking-[-0.075em] text-black">
@@ -406,7 +421,7 @@ export default function Home() {
           </div>
           <div className="flex flex-col md:flex-row justify-between gap-4 text-[11px] font-mono">
             <span>© {new Date().getFullYear()} Backend Engineer. All rights reserved.</span>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center gap-4">
               <a
                 href={REPO_URL}
                 target="_blank"
@@ -418,6 +433,21 @@ export default function Home() {
               </a>
               <span className="hover:text-white cursor-pointer transition">Privacy Policy</span>
               <span className="hover:text-white cursor-pointer transition">Terms of Service</span>
+              <a
+                href="https://www.producthunt.com/products/backend-engineer?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-backend-engineer"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1227185&theme=light&t=1787249936641"
+                  alt="Backend Engineer - Backend engineering, explained visually | Product Hunt"
+                  width={150}
+                  height={32}
+                  className="h-8 w-auto"
+                />
+              </a>
             </div>
           </div>
         </div>
