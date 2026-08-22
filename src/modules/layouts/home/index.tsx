@@ -448,6 +448,22 @@ export default function Home() {
                   className="h-8 w-auto"
                 />
               </a>
+              <a
+                href="https://launchbuff.com/products/backend-engineer-kwcqfv"
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Featured on LaunchBuff"
+                className="shrink-0"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="https://launchbuff.com/badge-featured-light.svg"
+                  alt="Featured on LaunchBuff"
+                  width={256}
+                  height={80}
+                  className="h-8 w-auto"
+                />
+              </a>
             </div>
           </div>
         </div>
