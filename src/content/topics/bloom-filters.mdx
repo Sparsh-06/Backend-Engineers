@@ -1,0 +1,31 @@
+---
+title: "Bloom filters: how to check \"definitely not here\" without checking"
+description: "A probabilistic data structure that can say no with certainty and maybe with a small, tunable error rate - exactly what you want before an expensive disk or network lookup."
+keywords: ["bloom filter", "bloom filter explained", "probabilistic data structure", "bloom filter use cases", "false positive rate"]
+phase: "Phase 3"
+group: "algorithms-in-backend"
+---
+
+## The trick: multiple hash functions, one bit array
+
+A bloom filter is a fixed-size array of bits, all starting at 0, paired with several independent hash functions. Inserting an item runs it through each hash function, and sets the bit at each resulting position to 1 - a single item might set anywhere from 3 to a dozen or more bits, depending on how many hash functions the filter uses.
+
+Checking whether an item was inserted runs the same hash functions on it and looks at those same bit positions. If *any* of them is still 0, the item was definitely never inserted - that bit could only be 0 if nothing ever hashed to it. If *all* of them are 1, the item was probably inserted, with the honest caveat that those bits could have been set to 1 by some combination of other items, purely by coincidence.
+
+## Why false positives happen and false negatives can't
+
+This asymmetry is the entire design. A bloom filter can wrongly say "yes, probably present" for something that was never actually inserted - a false positive, caused by unrelated items happening to set all the same bits. It can never wrongly say "no, not present" for something that genuinely was inserted, because inserting an item always sets its bits, and nothing ever un-sets a bit (in the classic, non-deletable version of a bloom filter).
+
+<Callout>
+That guarantee - no false negatives, only false positives - is exactly backwards from most approximations, and it's precisely why bloom filters are safe to use as a first check before a real, authoritative lookup: a "maybe" always deserves the real check, but a "definitely not" can be trusted outright.
+</Callout>
+
+## Sizing the tradeoff
+
+More bits and more hash functions both reduce the false-positive rate, at the cost of more memory and more hash computations per operation. The number of items you expect to insert also matters directly - the same bit array gets a worse false-positive rate as more items are packed into it, since more bits end up set to 1 by coincidence. In practice, a bloom filter is sized upfront for an expected number of items and a target false-positive rate (something like 1%), and the required bit-array size and hash-function count follow from that target rather than being guessed.
+
+Standard bloom filters also can't remove items - unsetting a bit to "delete" one item might belong to several other items too, silently breaking them. Systems that need deletion use a variant (a counting bloom filter, which uses small counters instead of single bits) that costs more memory in exchange for that capability.
+
+## Where this shows up
+
+Cassandra, HBase, and RocksDB all keep a bloom filter per on-disk file (see the LSM trees lesson) specifically so a read for a key that isn't in a given file can skip reading it entirely, rather than doing a real disk read just to find nothing. Web browsers have historically used bloom filters for malicious-URL checking (an early version of Google Safe Browsing worked this way) - a fast local "probably not on the list" check that avoids a network call to a real database for the overwhelming majority of harmless URLs, only doing the expensive authoritative check on the rare "maybe."

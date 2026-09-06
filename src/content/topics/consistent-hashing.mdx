@@ -1,0 +1,35 @@
+---
+title: "Consistent hashing: why adding one server shouldn't reshuffle everything"
+description: "The hashing trick that lets distributed caches and databases add or remove nodes without remapping almost every key."
+keywords: ["consistent hashing", "consistent hashing explained", "hash ring", "virtual nodes", "distributed hashing", "why consistent hashing"]
+phase: "Phase 3"
+group: "algorithms-in-backend"
+---
+
+## The problem with plain modulo hashing
+
+The obvious way to spread keys across N cache servers is `hash(key) % N` - hash the key, take it mod the number of servers, send it there. It works fine until N changes. Add or remove a single server and N shifts, which means `hash(key) % N` returns a different answer for almost every key, not just the ones that logically belong to the new or removed server. In practice, that means every cache on every server goes cold at once, and the full weight of every request lands on the origin database simultaneously - the exact moment a cache is most needed.
+
+## The hash ring
+
+Consistent hashing fixes this by hashing servers *and* keys onto the same conceptual space - usually visualized as a ring of hash values from 0 up to some large maximum, wrapping back to 0. Each server is placed on the ring at the position given by hashing its identity (a hostname or IP). A key is assigned to whichever server's position is the next one clockwise from the key's own hash position.
+
+Removing a server now only affects the keys that were mapped to it - they simply move to the next server clockwise, and every other key on the ring is untouched. Adding a server only takes over the portion of the ring between it and the previous server clockwise, again leaving everything else alone. Roughly `1/N` of keys move on any single node change, not close to all of them.
+
+## Virtual nodes fix the uneven-load problem
+
+Placing each real server at just one point on the ring creates an obvious problem: the gaps between servers are essentially random, so some servers end up owning much larger arcs of the ring - and therefore far more keys - than others, purely by the luck of where their hash landed.
+
+The fix is virtual nodes: each physical server gets hashed onto the ring at many points (Amazon's Dynamo paper and Cassandra both use this), not just one. A server responsible for, say, 100 virtual points spread around the ring ends up with a much more even total share of the ring's arc length, because the law of large numbers smooths out the unevenness that one single random point would have. It also makes rebalancing after a node change spread more evenly across the *remaining* servers, instead of dumping an entire departing node's load onto whichever single neighbor happened to be next to it.
+
+<Callout>
+Virtual nodes are what actually make consistent hashing usable at scale - without them, the "add or remove one node" property theoretically holds, but load between the surviving nodes can be wildly uneven in practice.
+</Callout>
+
+## What actually moves when a node joins or leaves
+
+Only the data belonging to the ring segment that changed hands needs to move - a new node joining pulls its slice of keys from whichever node used to own that segment; a node leaving hands its slice to its clockwise neighbor. Everything else on the ring keeps its existing key-to-server mapping exactly as it was, which is the entire point: scaling a cluster up or down becomes a localized, proportional operation instead of an all-at-once reshuffle.
+
+## Where this shows up
+
+Cassandra and DynamoDB both use consistent hashing (with virtual nodes) as their core partitioning scheme for spreading data across nodes. Memcached client libraries commonly implement it client-side (ketama is the best-known one) so that adding a memcached server doesn't invalidate almost every existing cache entry across the whole cluster. Load balancers use the same idea to keep a client's requests landing on the same backend server as connections come and go.

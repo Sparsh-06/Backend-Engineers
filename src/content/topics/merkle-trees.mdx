@@ -1,0 +1,31 @@
+---
+title: "Merkle trees: how distributed databases catch silent data corruption"
+description: "A tree of hashes that lets two replicas compare huge datasets by comparing a handful of numbers, without transferring the data itself."
+keywords: ["merkle tree", "merkle tree explained", "merkle tree distributed systems", "anti-entropy repair", "data integrity hashing"]
+phase: "Phase 3"
+group: "algorithms-in-backend"
+---
+
+## The naive way to compare two datasets, and why it's too expensive
+
+Two replicas of the same data can quietly drift apart - a write that reached one replica but not another, a bit flip on disk, a bug in replication. Confirming they still match by comparing every record against every record means transferring the entire dataset between them, which is exactly the kind of expensive operation you'd want to avoid doing routinely, especially across a network, for datasets that might be gigabytes or terabytes.
+
+## Hashing in layers
+
+A Merkle tree solves this by hashing the data in layers. Split the dataset into blocks, hash each block individually - these are the leaves. Then hash pairs of those leaf hashes together to get the next layer up, hash pairs of *those* hashes together for the layer above that, and keep going until a single hash remains: the root.
+
+That root hash is a fingerprint of the entire dataset. If two replicas compute the same root hash, their data is - overwhelmingly probably, barring a hash collision - identical, block for block. Comparing datasets now costs one hash comparison instead of a full data transfer.
+
+## Walking down to find just the mismatch
+
+The real value shows up when the root hashes *don't* match. Instead of concluding "something's different" and giving up, both sides can compare the next layer down - the children of the root - and see which child's hash differs. Whichever branch disagrees is where the discrepancy lives; the branch that matches can be ignored entirely, since a matching hash there means everything underneath it is confirmed identical too.
+
+<Callout>
+Repeating this - descend into the mismatched branch, compare its children, repeat - narrows down to the exact differing block in O(log n) comparisons, transferring only a small number of hashes at each level instead of the actual data, until the one leaf that actually differs is found.
+</Callout>
+
+Only that one block, not the whole dataset, ever needs to be re-transferred to fix the discrepancy.
+
+## Where this shows up
+
+Cassandra and DynamoDB-style databases use Merkle trees for anti-entropy repair - periodically comparing replicas to catch and fix silent divergence without a full data comparison every time. Git uses essentially the same idea for its object graph: every commit's hash depends on the hashes of its contents and parent commits, which is exactly why changing anything in history changes every commit hash after it, and why two repositories with the same latest commit hash are guaranteed to have identical history underneath. Bitcoin's blocks use a Merkle tree of transactions specifically so a lightweight client can verify a single transaction was included in a block by checking a short list of hashes, without downloading every transaction in that block.

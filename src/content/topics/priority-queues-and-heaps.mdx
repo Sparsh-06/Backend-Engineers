@@ -1,0 +1,31 @@
+---
+title: "Priority queues and heaps: how job schedulers decide what runs next"
+description: "The data structure behind \"always process the most urgent thing first,\" and how a heap keeps that decision cheap even as the queue grows."
+keywords: ["priority queue", "heap data structure", "job scheduler algorithm", "task queue priority", "binary heap"]
+phase: "Phase 3"
+group: "algorithms-in-backend"
+---
+
+## Why a sorted list isn't good enough
+
+A priority queue always hands you the highest-priority (or lowest, depending on convention) item first, regardless of what order things were added in. Keeping items in a fully sorted list would make "get the next item" instant, but every insertion would need to find the right spot in sorted order - an O(n) operation in the worst case, since items in the middle need to shift. A heap gets both operations - insert and extract-the-priority-item - down to O(log n), by giving up on being fully sorted and keeping only a much weaker, cheaper-to-maintain property instead.
+
+## The heap: a tree that only half-sorts itself
+
+A binary heap is a binary tree with one guarantee: every parent is more urgent than both of its children (for a min-heap, "more urgent" means smaller; for a max-heap, larger). That's it - siblings have no required relationship to each other at all, and the tree isn't sorted in any traversal order the way a binary search tree is. This weaker guarantee is deliberate: it's the minimum structure needed to always know the single most-urgent item instantly (it's always the root), without paying the cost of keeping everything else fully ordered.
+
+In practice, a heap is almost always stored as a plain array, not as linked tree nodes - a node at index `i` has children at indices `2i + 1` and `2i + 2`, which means the tree shape is implicit in array positions and needs no pointers at all.
+
+## Insert and extract, both O(log n)
+
+Inserting appends the new item to the end of the array, then repeatedly swaps it with its parent as long as it's more urgent than that parent - "sifting up" - until it either reaches the root or lands under a parent that's already more urgent. Since a heap's height is always `log n` (it stays a complete tree by construction), this sift can only take `log n` swaps at most.
+
+Extracting the top item takes the root (the answer), moves the very last element in the array into the now-empty root position, then repeatedly swaps that element down with whichever child is more urgent than it - "sifting down" - until it settles somewhere it satisfies the heap property again. Also bounded by the tree's height, so also O(log n).
+
+<Callout>
+A genuinely surprising fact about heaps: building one from scratch out of n unsorted elements is O(n), not O(n log n) as naively inserting each element one at a time would suggest. The trick - called "heapify" - sifts down starting from the last non-leaf node backward to the root, and the math works out because most nodes in a tree are near the leaves, where sifting down has almost no distance left to travel.
+</Callout>
+
+## Where this shows up
+
+Dijkstra's shortest-path algorithm and Prim's minimum-spanning-tree algorithm both use a priority queue internally to always expand the currently-cheapest option next. Distributed task queues and job schedulers - anywhere a system needs to guarantee "the most urgent pending item runs next" even as new items keep arriving - are built around exactly this structure, precisely because it keeps both "add a new item" and "take the next one" cheap at the same time, which a sorted structure can't do for both.

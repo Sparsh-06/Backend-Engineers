@@ -1,0 +1,39 @@
+---
+title: "Hash tables, and why \"O(1) lookup\" has an asterisk"
+description: "The data structure behind almost every cache, dictionary, and index - and what actually happens during a collision or a resize."
+keywords: ["hash table", "hash table explained", "hash collision", "how hash tables work", "open addressing vs chaining", "hash table resize"]
+phase: "Phase 3"
+group: "algorithms-in-backend"
+---
+
+## The idea: turn a key into an address
+
+A hash table's whole trick is turning a key - a string, a number, anything - into a number via a hash function, then using that number as an index into a plain array. Look up `"user:4821"` and instead of scanning a list to find it, the table hashes the string, gets back something like `73`, and jumps straight to slot 73. No searching. That's where "O(1) lookup" comes from: reaching an array index by its position doesn't depend on how many other items are in the table.
+
+Every dictionary, every in-memory cache, and most database indexes on non-range queries are hash tables underneath, precisely because "look this exact key up, fast" is one of the most common operations software ever does.
+
+## Collisions are guaranteed, not a bug
+
+Two different keys can hash to the same slot. With enough keys and a fixed number of slots, this isn't a rare edge case - it's mathematically certain past a certain point (the birthday paradox, applied to hash slots instead of birthdays). A hash table that didn't plan for this wouldn't be usable at all.
+
+<Callout>
+A hash function is judged by how evenly it spreads keys across slots, not by whether it avoids collisions entirely - avoiding them completely is generally impossible once you have more possible keys than slots, which is nearly always.
+</Callout>
+
+## Chaining vs open addressing
+
+There are two standard ways to handle a collision once it happens.
+
+**Separate chaining** turns each slot into a small list. When two keys hash to the same slot, both just get appended to that slot's list. Lookup hashes the key, finds the slot, then scans the (usually very short) list for an exact match. Simple, and degrades gracefully - a bad hash function just makes the lists longer, not the table incorrect.
+
+**Open addressing** keeps every slot holding at most one entry. On a collision, it probes forward according to some fixed rule (check the next slot, then the next, or jump by increasing steps) until it finds an empty one. Lookup follows the same probe sequence until it finds the key or hits an empty slot, which means "not found." This uses less memory than chaining (no linked list nodes) and tends to be faster in practice because it stays cache-friendly, but it gets meaningfully worse as the table fills up, because probe sequences get longer.
+
+## Resizing is the part "O(1)" quietly skips
+
+A hash table only stays fast while it has enough empty slots relative to how many keys it holds - this ratio is called the load factor. Java's `HashMap` resizes once it crosses a load factor of 0.75 by default; most other implementations use a similar threshold. Once crossed, the table allocates a bigger backing array (usually double the size) and re-hashes every existing key into it, because the slot a key maps to depends on the array's size.
+
+That resize is O(n), not O(1) - but it happens rarely enough (each resize roughly doubles capacity, so the *amortized* cost per insert averages out to O(1) over many inserts) that "hash table operations are O(1)" is the practical truth almost all of the time, with the honest caveat that any *individual* insert might be the unlucky one that triggers a full re-hash.
+
+## Where this shows up
+
+Every in-memory cache (Redis's core key-value store, Memcached), every language's built-in dictionary type (Python's `dict`, JavaScript's `Map`, Java's `HashMap`), and hash indexes in databases (Postgres supports them explicitly for equality lookups, distinct from its default B-tree indexes) all lean on exactly this structure. The next lesson, on LRU caches, builds directly on top of one.

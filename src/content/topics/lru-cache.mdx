@@ -1,0 +1,50 @@
+---
+title: "LRU caches: a hash map and a doubly linked list, working together"
+description: "Why \"evict the least recently used item\" needs two data structures at once, and how that combination keeps both lookup and eviction O(1)."
+keywords: ["LRU cache", "least recently used cache", "LRU cache implementation", "doubly linked list cache", "cache eviction algorithm", "LRU vs LFU"]
+phase: "Phase 3"
+group: "algorithms-in-backend"
+---
+
+## Two operations, two different requirements
+
+A least-recently-used cache needs to do two things fast: look up a value by key, and know which item to throw away when it's full. Those two requirements pull in different directions. Looking something up by key is exactly what a hash table is for. But a hash table has no sense of order - it can't tell you which of its entries was touched longest ago. Tracking recency needs something else entirely: a structure that can move an item to the "most recent" end the instant it's accessed, in constant time, no matter how large the cache gets.
+
+Neither structure alone solves both problems. An LRU cache is what you get from running them side by side, each covering the other's gap.
+
+## The hash map: O(1) lookup
+
+The hash map (see the previous lesson) maps each key directly to a pointer at a node in a linked list, not to the value itself. This indirection is the whole point - it means an entry can be relocated within the list without ever touching the hash map's entry for it. The map's job is only ever "find me the node for this key instantly," never "track order."
+
+## The doubly linked list: O(1) move-to-front and eviction
+
+The linked list holds the actual key-value pairs, ordered from most recently used (the head) to least recently used (the tail). Every time a key is read or written, its node gets unlinked from wherever it currently sits and relinked at the head - and because the list is *doubly* linked, a node knows both its previous and next neighbor, so this unlink-and-relink is a handful of pointer updates, not a scan. When the cache is full and a new key needs to come in, the tail node - by definition the least recently used - gets evicted, and removing a node you already have a direct pointer to is also O(1) in a doubly linked list. A singly linked list can't do this: removing a node requires knowing its *previous* node too, which means scanning from the head to find it.
+
+<Callout>
+This is the detail that makes the whole design work: the hash map gives you an O(1) pointer straight to a node anywhere in the list, and a doubly linked list lets you unlink and relink that exact node in O(1) once you have it. Drop either piece and something becomes a scan.
+</Callout>
+
+## Why not just an array, or just a map
+
+An array (or map) alone can give you fast lookup, but tracking "least recently used" would mean either scanning for the oldest entry on every eviction, or maintaining a separate timestamp per entry and sorting - both far more expensive than the pointer-shuffling above. The two-structure design isn't extra complexity for its own sake; it's the specific combination that makes both operations - not just one - stay O(1).
+
+```
+get(key):
+  node = map[key]              # O(1)
+  moveToHead(node)              # O(1) - pointer updates only
+  return node.value
+
+put(key, value):
+  if key in map: moveToHead + update value
+  else:
+    if full: evict tail node, remove from map
+    insert new node at head, add to map
+```
+
+## LFU, briefly, as the alternative
+
+Least-Frequently-Used caching evicts based on access *count* rather than recency, which better suits workloads where some items are consistently hot regardless of when they were last touched - but it needs a way to track frequency alongside order (typically a structure keyed by frequency, not a simple recency list), which is why LFU implementations are noticeably more involved than LRU's map-plus-list. Most general-purpose caches default to LRU specifically because it's simpler to get right and still matches "recently used data tends to be used again soon" for a wide range of real access patterns.
+
+## Where this shows up
+
+Redis and Memcached both offer LRU-style eviction as a built-in cache policy, CPU caches implement approximations of LRU in hardware, and most application-level in-memory caching libraries (Python's `functools.lru_cache`, for one) are literally named after this exact structure.
