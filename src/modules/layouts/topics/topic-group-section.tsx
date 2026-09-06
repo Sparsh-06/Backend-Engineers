@@ -42,12 +42,14 @@ export default function TopicGroupSection({
               {group.intro}
             </p>
           </div>
-          <Link
-            href={`#${group.slug}`}
+          {/* Plain <a>, not next/link - Link doesn't reliably perform the
+              native scroll-to-anchor behavior for same-page hash changes. */}
+          <a
+            href="#topics-top"
             className="text-sm font-semibold text-black/65 underline decoration-black/25 underline-offset-4 hover:decoration-black"
           >
-            Jump to lessons
-          </Link>
+            ↑ Back to top
+          </a>
         </div>
 
         <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">

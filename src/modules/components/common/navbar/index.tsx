@@ -4,9 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { GitHubIcon, REPO_URL } from "@/modules/components/common/site-footer";
+import TopicsMegaMenu from "./topics-mega-menu";
+import { topicGroups } from "@/data/topics";
 
 const links = [
-  { name: "Topics", href: "/topics" },
   { name: "Build it", href: "/build" },
   { name: "Canvas", href: "/canvas" },
   { name: "Concepts", href: "/concepts" },
@@ -18,6 +19,7 @@ const links = [
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [topicsExpanded, setTopicsExpanded] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -60,6 +62,7 @@ export default function Navbar() {
 
           {/* Desktop Nav Links */}
           <nav className="hidden items-center gap-1 md:flex">
+            <TopicsMegaMenu />
             {links.map((link) => (
               <Link
                 key={link.name}
@@ -109,6 +112,43 @@ export default function Navbar() {
         >
           <div className="overflow-hidden">
             <nav className="flex flex-col gap-1 border-t border-black/10 px-5 pt-3 pb-5">
+              <button
+                type="button"
+                onClick={() => setTopicsExpanded((v) => !v)}
+                className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-semibold text-black/80 hover:bg-black/5"
+                aria-expanded={topicsExpanded}
+              >
+                Topics
+                <svg
+                  viewBox="0 0 12 12"
+                  width="10"
+                  height="10"
+                  className={`transition-transform duration-200 ${topicsExpanded ? "rotate-180" : ""}`}
+                  aria-hidden="true"
+                >
+                  <path d="M2 4l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+              <div
+                className={`grid transition-all duration-200 ease-in-out ${
+                  topicsExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                }`}
+              >
+                <div className="overflow-hidden">
+                  <div className="ml-2 flex flex-col gap-0.5 border-l border-black/10 pl-3 pb-1">
+                    {topicGroups.map((group) => (
+                      <Link
+                        key={group.slug}
+                        href={`/topics#${group.slug}`}
+                        onClick={(e) => handleNavClick(e, `/topics#${group.slug}`)}
+                        className="rounded-lg px-3 py-2 text-xs font-medium text-black/65 hover:bg-black/5 hover:text-black cursor-pointer"
+                      >
+                        {group.title}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </div>
               {links.map((link) => (
                 <Link
                   key={link.name}
