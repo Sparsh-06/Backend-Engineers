@@ -1,0 +1,35 @@
+---
+title: "B-trees: why databases don't just use a binary search tree"
+description: "The shape of the data structure behind almost every database index, and why it's built around disk reads instead of comparisons."
+keywords: ["b-tree", "b-tree explained", "b-tree vs binary search tree", "database index data structure", "b+ tree"]
+phase: "Phase 3"
+group: "algorithms-in-backend"
+---
+
+## Why not a binary search tree
+
+A balanced binary search tree gives you O(log n) lookups, which sounds like exactly what a database index needs. The problem shows up once the tree is too large to fit in memory, which is the normal case for a real table. A binary tree with a million rows is roughly 20 levels deep - and if each level lives on disk, a single lookup means 20 separate disk reads. Disk reads are the slowest thing a database does, often by several orders of magnitude compared to a comparison in memory, so minimizing *how many of them* a lookup needs matters far more than minimizing the number of comparisons.
+
+## Wide and shallow, on purpose
+
+A B-tree solves this by making each node hold many keys - often hundreds - instead of just one. That branching factor comes directly from disk page size: a database typically sizes each B-tree node to match one disk page (commonly 4KB or 8KB), and packs as many keys and child pointers into that page as will fit. The result is a tree that's wide instead of deep - the same million rows that needed 20 levels as a binary tree might need only 3 or 4 levels as a B-tree, because each level fans out into hundreds of children instead of two.
+
+Fewer levels means fewer disk reads per lookup, which is the entire reason the structure exists in this shape. The number of *comparisons* per node is actually higher than a binary tree (you're searching within a page of hundreds of keys, not choosing between two), but that comparison happens in memory after the page is already loaded, and memory comparisons are effectively free next to a disk read.
+
+## Splitting a node
+
+Inserting a key into a full node means the node needs to split into two, with the middle key pushed up into the parent to separate them. If the parent is also full, it splits too, and the split can propagate all the way to the root - which is the one case where a B-tree's height grows, always from the top, keeping the tree perfectly balanced by construction rather than needing a separate rebalancing step like a red-black tree does.
+
+<Callout>
+A B-tree stays balanced as a direct consequence of how it grows - splits always happen bottom-up and push growth toward the root - rather than through extra rebalancing logic bolted on afterward.
+</Callout>
+
+## B+ trees, specifically, for range scans
+
+Most real databases (PostgreSQL, MySQL's InnoDB, SQLite) actually use a variant called a B+ tree, not a plain B-tree. The difference: in a B+ tree, only leaf nodes hold the actual row data (or pointers to it) - internal nodes exist purely to route a search toward the right leaf, holding copies of keys but no data. Every leaf is additionally linked to the next leaf in order, forming a chain across the bottom of the tree.
+
+That leaf chain is what makes range queries fast: `WHERE created_at BETWEEN x AND y` finds the starting leaf with one top-down search, then just walks the linked leaves forward until it passes the end of the range, never needing to go back up the tree. A plain B-tree, with data scattered across internal nodes too, doesn't offer that same clean linear walk.
+
+## Where this shows up
+
+Every default index in PostgreSQL and MySQL is a B+ tree unless you explicitly choose otherwise (a hash index, or a specialized one like GIN for full-text search). Filesystems use them too - NTFS and ext4 both rely on B-tree variants to keep directory lookups fast even with huge numbers of files.

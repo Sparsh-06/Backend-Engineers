@@ -129,6 +129,16 @@ const publishedTopicSlugs = new Set([
   "api-gateway",
   "auth-and-security",
   "rate-limiting",
+  "hash-tables",
+  "lru-cache",
+  "consistent-hashing",
+  "b-trees",
+  "lsm-trees",
+  "bloom-filters",
+  "skip-lists",
+  "tries",
+  "priority-queues-and-heaps",
+  "merkle-trees",
 ]);
 
 export const topicGroups: TopicGroup[] = [
@@ -1427,6 +1437,97 @@ export const topicGroups: TopicGroup[] = [
     ],
   },
   {
+    slug: "algorithms-in-backend",
+    title: "Data structures and algorithms, in context",
+    description:
+      "The data structures and algorithms real backend systems run on, each explained by the specific problem it solves.",
+    intro:
+      "Skip the \"reverse a linked list\" interview drill. Here's why Redis picks a skip list, why a load balancer uses consistent hashing instead of a plain modulo, and why a cache is really just a hash map with an eviction policy bolted on.",
+    keywords: ["data structures", "algorithms", "hash table", "consistent hashing", "bloom filter"],
+    topics: [
+      {
+        slug: "hash-tables",
+        title: "Hash tables, and why \"O(1) lookup\" has an asterisk",
+        description:
+          "The data structure behind almost every cache, dictionary, and index - and what actually happens during a collision or a resize.",
+        keywords: ["hash table", "hash table explained", "hash collision", "how hash tables work", "open addressing vs chaining", "hash table resize"],
+        phase: "Phase 3",
+      },
+      {
+        slug: "lru-cache",
+        title: "LRU caches: a hash map and a doubly linked list, working together",
+        description:
+          "Why \"evict the least recently used item\" needs two data structures at once, and how that combination keeps both lookup and eviction O(1).",
+        keywords: ["LRU cache", "least recently used cache", "LRU cache implementation", "doubly linked list cache", "cache eviction algorithm", "LRU vs LFU"],
+        phase: "Phase 3",
+      },
+      {
+        slug: "consistent-hashing",
+        title: "Consistent hashing: why adding one server shouldn't reshuffle everything",
+        description:
+          "The hashing trick that lets distributed caches and databases add or remove nodes without remapping almost every key.",
+        keywords: ["consistent hashing", "consistent hashing explained", "hash ring", "virtual nodes", "distributed hashing", "why consistent hashing"],
+        phase: "Phase 3",
+      },
+      {
+        slug: "b-trees",
+        title: "B-trees: why databases don't just use a binary search tree",
+        description:
+          "The shape of the data structure behind almost every database index, and why it's built around disk reads instead of comparisons.",
+        keywords: ["b-tree", "b-tree explained", "b-tree vs binary search tree", "database index data structure", "b+ tree"],
+        phase: "Phase 3",
+      },
+      {
+        slug: "lsm-trees",
+        title: "LSM trees: why write-heavy databases don't update in place",
+        description:
+          "The data structure trick behind Cassandra, RocksDB, and every \"append-only, merge later\" database - trading read speed for write speed on purpose.",
+        keywords: ["LSM tree", "log structured merge tree", "LSM tree explained", "cassandra write path", "append-only database", "compaction"],
+        phase: "Phase 3",
+      },
+      {
+        slug: "bloom-filters",
+        title: "Bloom filters: how to check \"definitely not here\" without checking",
+        description:
+          "A probabilistic data structure that can say no with certainty and maybe with a small, tunable error rate - exactly what you want before an expensive disk or network lookup.",
+        keywords: ["bloom filter", "bloom filter explained", "probabilistic data structure", "bloom filter use cases", "false positive rate"],
+        phase: "Phase 3",
+      },
+      {
+        slug: "skip-lists",
+        title: "Skip lists: why Redis picks this over a balanced tree",
+        description:
+          "A simpler alternative to balanced trees that gets similar performance through randomness instead of careful rebalancing.",
+        keywords: ["skip list", "skip list explained", "redis sorted set data structure", "skip list vs balanced tree"],
+        phase: "Phase 3",
+      },
+      {
+        slug: "tries",
+        title: "Tries: the data structure behind autocomplete and IP routing",
+        description:
+          "A tree shaped around shared prefixes - why it's the natural fit for typeahead search, autocomplete, and matching the longest routing prefix.",
+        keywords: ["trie data structure", "prefix tree", "trie explained", "autocomplete data structure", "longest prefix match"],
+        phase: "Phase 3",
+      },
+      {
+        slug: "priority-queues-and-heaps",
+        title: "Priority queues and heaps: how job schedulers decide what runs next",
+        description:
+          "The data structure behind \"always process the most urgent thing first,\" and how a heap keeps that decision cheap even as the queue grows.",
+        keywords: ["priority queue", "heap data structure", "job scheduler algorithm", "task queue priority", "binary heap"],
+        phase: "Phase 3",
+      },
+      {
+        slug: "merkle-trees",
+        title: "Merkle trees: how distributed databases catch silent data corruption",
+        description:
+          "A tree of hashes that lets two replicas compare huge datasets by comparing a handful of numbers, without transferring the data itself.",
+        keywords: ["merkle tree", "merkle tree explained", "merkle tree distributed systems", "anti-entropy repair", "data integrity hashing"],
+        phase: "Phase 3",
+      },
+    ],
+  },
+  {
     slug: "data-storage",
     title: "Data storage, persistence, and caching",
     description:
@@ -1441,7 +1542,7 @@ export const topicGroups: TopicGroup[] = [
         description:
           "The four promises a database makes when you save important information.",
         keywords: ["ACID", "transactions", "durability"],
-        phase: "Phase 3",
+        phase: "Phase 4",
       },
       {
         slug: "isolation-levels",
@@ -1449,7 +1550,7 @@ export const topicGroups: TopicGroup[] = [
         description:
           "What can go wrong when many people read and change the same data at the same time.",
         keywords: ["isolation levels", "phantom reads", "Serializable"],
-        phase: "Phase 3",
+        phase: "Phase 4",
       },
       {
         slug: "indexing-mechanics",
@@ -1457,7 +1558,7 @@ export const topicGroups: TopicGroup[] = [
         description:
           "How databases find rows quickly, and how to check whether a query is doing too much work.",
         keywords: ["B-tree", "GIN", "GiST", "EXPLAIN ANALYZE"],
-        phase: "Phase 3",
+        phase: "Phase 4",
       },
       {
         slug: "connection-management",
@@ -1465,7 +1566,7 @@ export const topicGroups: TopicGroup[] = [
         description:
           "How to share database connections safely instead of opening a new one for every request.",
         keywords: ["connection pool", "pgBouncer", "database connections"],
-        phase: "Phase 3",
+        phase: "Phase 4",
       },
       {
         slug: "mongodb",
@@ -1473,7 +1574,7 @@ export const topicGroups: TopicGroup[] = [
         description:
           "How MongoDB stores flexible documents and helps you search or group them.",
         keywords: ["MongoDB", "BSON", "aggregation"],
-        phase: "Phase 3",
+        phase: "Phase 4",
       },
       {
         slug: "redis",
@@ -1481,7 +1582,7 @@ export const topicGroups: TopicGroup[] = [
         description:
           "The useful ways Redis can hold data when you need answers very quickly.",
         keywords: ["Redis", "sorted sets", "HyperLogLog"],
-        phase: "Phase 3",
+        phase: "Phase 4",
       },
       {
         slug: "wide-column",
@@ -1489,7 +1590,7 @@ export const topicGroups: TopicGroup[] = [
         description:
           "How databases built for huge amounts of data organise writes and find the right slice later.",
         keywords: ["Cassandra", "TimescaleDB", "LSM tree"],
-        phase: "Phase 3",
+        phase: "Phase 4",
       },
       {
         slug: "cache-placement",
@@ -1497,7 +1598,7 @@ export const topicGroups: TopicGroup[] = [
         description:
           "Where a cache can live, from inside your app to servers close to your users.",
         keywords: ["cache", "CDN", "Redis cache"],
-        phase: "Phase 3",
+        phase: "Phase 4",
       },
       {
         slug: "cache-patterns",
@@ -1505,7 +1606,7 @@ export const topicGroups: TopicGroup[] = [
         description:
           "The common ways an app can read from and write to a cache.",
         keywords: ["cache-aside", "write-through", "write-back"],
-        phase: "Phase 3",
+        phase: "Phase 4",
       },
       {
         slug: "cache-invalidation",
@@ -1513,7 +1614,7 @@ export const topicGroups: TopicGroup[] = [
         description:
           "How caches decide what to forget, and how to avoid a rush of requests when data disappears.",
         keywords: ["LRU", "LFU", "TTL", "cache stampede"],
-        phase: "Phase 3",
+        phase: "Phase 4",
       },
     ],
   },
@@ -1532,7 +1633,7 @@ export const topicGroups: TopicGroup[] = [
         description:
           "Decide whether to buy a bigger machine or add more machines to handle more people.",
         keywords: ["horizontal scaling", "vertical scaling", "stateless"],
-        phase: "Phase 4",
+        phase: "Phase 5",
       },
       {
         slug: "stateless-stateful",
@@ -1540,7 +1641,7 @@ export const topicGroups: TopicGroup[] = [
         description:
           "Learn what happens when an app remembers a user, and why that can make scaling harder.",
         keywords: ["stateful", "stateless", "sessions"],
-        phase: "Phase 4",
+        phase: "Phase 5",
       },
       {
         slug: "load-balancing",
@@ -1548,7 +1649,7 @@ export const topicGroups: TopicGroup[] = [
         description:
           "How a traffic director spreads incoming requests across several app servers.",
         keywords: ["load balancer", "L4", "L7", "consistent hashing"],
-        phase: "Phase 4",
+        phase: "Phase 5",
       },
       {
         slug: "database-scaling",
@@ -1556,15 +1657,7 @@ export const topicGroups: TopicGroup[] = [
         description:
           "Ways to split database work across machines when one database is no longer enough.",
         keywords: ["replication", "sharding", "partition key"],
-        phase: "Phase 4",
-      },
-      {
-        slug: "consistent-hashing",
-        title: "Consistent hashing",
-        description:
-          "A way to spread data across machines without having to move everything when one machine changes.",
-        keywords: ["consistent hashing", "virtual nodes"],
-        phase: "Phase 4",
+        phase: "Phase 5",
       },
       {
         slug: "queues-vs-streams",
@@ -1572,7 +1665,7 @@ export const topicGroups: TopicGroup[] = [
         description:
           "The difference between handing a job to one worker and keeping a record that many workers can read.",
         keywords: ["RabbitMQ", "Kafka", "Kinesis"],
-        phase: "Phase 4",
+        phase: "Phase 5",
       },
       {
         slug: "event-patterns",
@@ -1580,7 +1673,7 @@ export const topicGroups: TopicGroup[] = [
         description:
           "Simple patterns for letting parts of a system react when something important happens.",
         keywords: ["event sourcing", "CQRS", "Pub/Sub"],
-        phase: "Phase 4",
+        phase: "Phase 5",
       },
       {
         slug: "delivery-semantics",
@@ -1588,7 +1681,7 @@ export const topicGroups: TopicGroup[] = [
         description:
           "What it means when a message might arrive once, twice, or not at all-and how to handle it safely.",
         keywords: ["at-least-once", "exactly-once", "idempotency"],
-        phase: "Phase 4",
+        phase: "Phase 5",
       },
       {
         slug: "fault-tolerance",
@@ -1596,7 +1689,7 @@ export const topicGroups: TopicGroup[] = [
         description:
           "How to stop one broken service from making the whole product feel broken.",
         keywords: ["circuit breaker", "bulkhead", "fallback"],
-        phase: "Phase 4",
+        phase: "Phase 5",
       },
       {
         slug: "retries-backoff",
@@ -1604,7 +1697,7 @@ export const topicGroups: TopicGroup[] = [
         description:
           "How to try again after a temporary problem without making the problem worse.",
         keywords: ["retries", "backoff", "jitter"],
-        phase: "Phase 4",
+        phase: "Phase 5",
       },
       {
         slug: "dead-letter-queues",
@@ -1612,7 +1705,7 @@ export const topicGroups: TopicGroup[] = [
         description:
           "Where to put messages that keep failing so they do not block everything else.",
         keywords: ["DLQ", "poison pill", "retry pipeline"],
-        phase: "Phase 4",
+        phase: "Phase 5",
       },
       {
         slug: "consensus",
@@ -1620,7 +1713,7 @@ export const topicGroups: TopicGroup[] = [
         description:
           "Why separate machines sometimes disagree, and how systems choose a safe answer.",
         keywords: ["CAP theorem", "PACELC", "Raft", "Paxos"],
-        phase: "Phase 4",
+        phase: "Phase 5",
       },
     ],
   },
@@ -1639,7 +1732,7 @@ export const topicGroups: TopicGroup[] = [
         description:
           "The difference between a full virtual computer and a lightweight container for your app.",
         keywords: ["containers", "virtualization", "Docker"],
-        phase: "Phase 5",
+        phase: "Phase 6",
       },
       {
         slug: "kubernetes",
@@ -1647,7 +1740,7 @@ export const topicGroups: TopicGroup[] = [
         description:
           "How Kubernetes helps run, replace, connect, and grow many copies of an app.",
         keywords: ["Kubernetes", "EKS", "HPA"],
-        phase: "Phase 5",
+        phase: "Phase 6",
       },
       {
         slug: "serverless",
@@ -1655,7 +1748,7 @@ export const topicGroups: TopicGroup[] = [
         description:
           "Run small pieces of code without managing servers, and understand the tradeoffs.",
         keywords: ["serverless", "Lambda", "Cloudflare Workers"],
-        phase: "Phase 5",
+        phase: "Phase 6",
       },
       {
         slug: "object-storage",
@@ -1663,7 +1756,7 @@ export const topicGroups: TopicGroup[] = [
         description:
           "Store files such as images and reports safely, then let people upload or download them directly.",
         keywords: ["S3", "object storage", "presigned URL"],
-        phase: "Phase 5",
+        phase: "Phase 6",
       },
       {
         slug: "cdn-acceleration",
@@ -1671,7 +1764,7 @@ export const topicGroups: TopicGroup[] = [
         description:
           "Serve content from a location near each user so your site feels faster.",
         keywords: ["CDN", "CloudFront", "edge cache"],
-        phase: "Phase 5",
+        phase: "Phase 6",
       },
       {
         slug: "vpc-architecture",
@@ -1679,7 +1772,7 @@ export const topicGroups: TopicGroup[] = [
         description:
           "Create a private network in the cloud and decide which parts can reach the internet.",
         keywords: ["VPC", "subnets", "route tables"],
-        phase: "Phase 5",
+        phase: "Phase 6",
       },
       {
         slug: "network-gateways",
@@ -1687,7 +1780,7 @@ export const topicGroups: TopicGroup[] = [
         description:
           "See the routes cloud services use to reach the internet, private services, or another network.",
         keywords: ["NAT gateway", "internet gateway", "peering"],
-        phase: "Phase 5",
+        phase: "Phase 6",
       },
       {
         slug: "firewalls",
@@ -1695,7 +1788,7 @@ export const topicGroups: TopicGroup[] = [
         description:
           "Set clear rules for who can talk to each part of your cloud setup.",
         keywords: ["security groups", "NACLs", "firewalls"],
-        phase: "Phase 5",
+        phase: "Phase 6",
       },
       {
         slug: "metrics",
@@ -1703,7 +1796,7 @@ export const topicGroups: TopicGroup[] = [
         description:
           "Track a few useful numbers so you can tell whether your system is healthy.",
         keywords: ["metrics", "Prometheus", "Grafana", "golden signals"],
-        phase: "Phase 5",
+        phase: "Phase 6",
       },
       {
         slug: "logging-tracing",
@@ -1711,7 +1804,7 @@ export const topicGroups: TopicGroup[] = [
         description:
           "Follow one request through several services using logs and traces that connect the dots.",
         keywords: ["logging", "tracing", "OpenTelemetry", "Jaeger"],
-        phase: "Phase 5",
+        phase: "Phase 6",
       },
     ],
   },
@@ -1730,7 +1823,7 @@ export const topicGroups: TopicGroup[] = [
         description:
           "Turn a long link into a short one, save it safely, and send people to the right place.",
         keywords: ["URL shortener", "Base62", "hashing"],
-        phase: "Phase 6",
+        phase: "Phase 7",
       },
       {
         slug: "chat-system",
@@ -1738,7 +1831,7 @@ export const topicGroups: TopicGroup[] = [
         description:
           "Plan how people can send messages instantly, even when someone is temporarily offline.",
         keywords: ["chat system", "WebSockets", "offline delivery"],
-        phase: "Phase 6",
+        phase: "Phase 7",
       },
       {
         slug: "rate-limiter-api",
@@ -1746,7 +1839,7 @@ export const topicGroups: TopicGroup[] = [
         description:
           "Build a fair request limit that still works when your app runs in more than one place.",
         keywords: ["rate limiter", "Redis", "sliding window"],
-        phase: "Phase 6",
+        phase: "Phase 7",
       },
       {
         slug: "financial-ledger",
@@ -1754,7 +1847,7 @@ export const topicGroups: TopicGroup[] = [
         description:
           "Keep a trustworthy record of money moving between accounts, even when requests repeat or fail.",
         keywords: ["ledger", "double-entry bookkeeping", "consistency"],
-        phase: "Phase 6",
+        phase: "Phase 7",
       },
       {
         slug: "video-streaming",
@@ -1762,7 +1855,7 @@ export const topicGroups: TopicGroup[] = [
         description:
           "Deliver video smoothly by sending the right quality to each viewer at the right time.",
         keywords: ["video streaming", "HLS", "DASH", "CDN"],
-        phase: "Phase 6",
+        phase: "Phase 7",
       },
     ],
   },

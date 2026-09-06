@@ -1,0 +1,31 @@
+---
+title: "Tries: the data structure behind autocomplete and IP routing"
+description: "A tree shaped around shared prefixes - why it's the natural fit for typeahead search, autocomplete, and matching the longest routing prefix."
+keywords: ["trie data structure", "prefix tree", "trie explained", "autocomplete data structure", "longest prefix match"]
+phase: "Phase 3"
+group: "algorithms-in-backend"
+---
+
+## Organizing by shared prefix, not by full key
+
+A hash table stores keys as opaque units - two keys that share every character except the last are stored completely independently, with no relationship to each other. A trie (the name comes from "re**trie**val," though it's commonly pronounced "try") organizes keys the opposite way: by their shared prefixes. Each node represents one character position, and its children represent the possible next characters. The words "car" and "card" share the path for `c -> a -> r`, and only diverge at the node representing the fourth character.
+
+This shape makes one specific question fast in a way a hash table can't answer at all: "what are all the keys that start with this prefix?" - the answer is just everything reachable below the node for that prefix, no scanning the whole dataset required.
+
+## Walking down the tree
+
+Looking up a word means walking down the trie one character at a time, following the child edge matching each successive character. Reaching the end of the word at a node marked as "this is a complete key" (tries need this marker, since one word can be a prefix of another - "car" is itself a valid word and also a prefix of "card") means the key exists. Falling off the tree - reaching a node with no child for the next required character - means it doesn't.
+
+The important complexity detail: a trie lookup is O(k), where k is the length of the key being searched - not O(log n) like a balanced tree, and critically, *not dependent on how many other keys are stored*. A trie with ten keys and a trie with ten million keys both look up a five-character word in exactly five steps.
+
+## The memory tradeoff
+
+The obvious downside is memory: a node needs somewhere to hold references to potential next characters, which for something like lowercase English text means room for up to 26 possible children per node, even if a given node only actually uses two or three of them. Sparse tries over large alphabets can waste substantial memory this way.
+
+<Callout>
+Real systems handle this with a compressed variant - a radix tree (or Patricia trie) - which collapses any chain of nodes that each have only one child into a single edge labeled with the whole shared substring, keeping the prefix-sharing benefit while cutting out the wasted single-child nodes.
+</Callout>
+
+## Where this shows up
+
+Autocomplete and typeahead search use tries directly - typing "back" and getting suggestions for "backend," "background," and "backup" is exactly a trie lookup for the prefix "back," followed by walking everything below that node. IP routers use a compressed trie (a radix tree, specifically) over binary IP prefixes to perform longest-prefix matching - finding the most specific matching route for a destination address - which needs to happen at line speed on every packet, making the O(k)-independent-of-table-size property genuinely load-bearing, not just a nice property on paper.

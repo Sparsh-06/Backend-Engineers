@@ -1,0 +1,37 @@
+---
+title: "LSM trees: why write-heavy databases don't update in place"
+description: "The data structure trick behind Cassandra, RocksDB, and every \"append-only, merge later\" database - trading read speed for write speed on purpose."
+keywords: ["LSM tree", "log structured merge tree", "LSM tree explained", "cassandra write path", "append-only database", "compaction"]
+phase: "Phase 3"
+group: "algorithms-in-backend"
+---
+
+## The write path: append, don't search
+
+A B-tree index (see the previous lesson) updates in place - writing a row means finding its exact spot in the tree and modifying it there, which requires reading that part of the structure first. That's fine when reads dominate, but it puts a hard floor under write latency: every write pays for a lookup before it can even happen.
+
+A log-structured merge tree takes the opposite approach: never search on write, just append. New writes go into an in-memory structure - usually a sorted structure like a skip list, called a memtable - purely by insertion order (or sorted order, cheaply, since it's in memory). No disk seek, no searching an existing on-disk structure, just append and move on. This is what makes LSM-tree-based databases dramatically faster at sustained write throughput than B-tree-based ones.
+
+## The memtable and the SSTable
+
+Once the memtable fills up, it gets flushed to disk as an immutable, sorted file - a Sorted String Table, or SSTable. "Immutable" is the key word: once written, an SSTable is never modified again, only eventually deleted once its contents have been superseded. A new write to a key that already exists in an older SSTable doesn't touch that file at all - it just gets written to the current memtable, and the newer value takes precedence on read.
+
+Over time, this produces many SSTables on disk, each representing a batch of writes from some point in the past, potentially containing multiple versions of the same key across different files.
+
+## Compaction: paying the cost later, deliberately
+
+Left unchecked, having many SSTables with overlapping, outdated keys would make reads slower and slower, since a read might need to check several files to find the current value for a key. Compaction is the background process that merges multiple SSTables into fewer, larger ones - combining entries for the same key down to just the newest version, and dropping data marked for deletion (a "tombstone," since there's nothing to delete in place - a delete is itself just a special write, appended like any other).
+
+<Callout>
+This is the core trade LSM trees make explicit: writes are cheap immediately, and the real cost of keeping data readable and compact is deferred to compaction, running later, in the background, instead of being paid upfront on every write like a B-tree pays on every update.
+</Callout>
+
+Compaction is genuinely expensive work - it reads and rewrites large amounts of data - which is why it's tunable and why a database under sustained heavy write load can fall behind on compaction, a real operational failure mode worth monitoring for, not just a theoretical concern.
+
+## The read-amplification tradeoff
+
+A read for a key that isn't in the memtable may need to check several SSTables before finding it (or confirming it doesn't exist) - this is read amplification, the cost LSM trees accept in exchange for their write performance. Two techniques cut this down substantially: bloom filters per SSTable let a read skip a file entirely if the filter says the key definitely isn't there (see the bloom filters lesson), and keeping SSTables sorted allows a binary search within each file that is checked.
+
+## Where this shows up
+
+Cassandra, RocksDB, LevelDB, and HBase are all built around LSM trees specifically because their target workloads are write-heavy - time-series data, event logs, write-intensive application state - where paying a small read cost in exchange for much higher sustained write throughput is the right trade. PostgreSQL and MySQL, by contrast, default to B+ trees because most relational workloads read far more than they write.

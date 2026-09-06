@@ -1,0 +1,31 @@
+---
+title: "Skip lists: why Redis picks this over a balanced tree"
+description: "A simpler alternative to balanced trees that gets similar performance through randomness instead of careful rebalancing."
+keywords: ["skip list", "skip list explained", "redis sorted set data structure", "skip list vs balanced tree"]
+phase: "Phase 3"
+group: "algorithms-in-backend"
+---
+
+## The problem balanced trees solve, solved differently
+
+Keeping a sorted collection with fast search, insert, and delete is normally a job for a balanced binary search tree - AVL trees, red-black trees. Both guarantee O(log n) operations, but both do it by enforcing strict balance invariants after every insert and delete, which means rotation logic that's genuinely fiddly to implement correctly and reason about.
+
+A skip list gets the same expected O(log n) performance for all three operations with a much simpler underlying idea: instead of a tree, it's several layers of ordinary sorted linked lists stacked on top of each other, where higher layers skip over more elements, letting a search move through large stretches of the list quickly before dropping down to a finer layer to pinpoint the exact spot.
+
+## Layers, built by coin flips
+
+Every element always exists in the bottom layer, which is just a normal sorted linked list. When an element is inserted, it's also added to the next layer up with some fixed probability - commonly 50%, decided by an actual coin-flip-equivalent random check. If it gets promoted, the same coin flip decides whether it's promoted again to the layer above that, and so on. The result is a structure where roughly half as many elements exist at each layer up, purely from that repeated random thinning.
+
+Searching starts at the top, sparsest layer and moves forward until the next element would overshoot the target, then drops down a layer and continues from there - repeating until it reaches the bottom layer and finds (or fails to find) the exact element. Because each layer up roughly halves the number of elements to scan through, this converges to O(log n) on average, the same complexity class as a balanced tree.
+
+## Why "probably balanced" is good enough
+
+A skip list has no formal balance guarantee the way a red-black tree does - an unlucky run of coin flips could, in theory, produce a badly skewed structure. In practice, with enough elements, the probabilities work out close enough to the expected shape that this almost never becomes a real problem, and there's no rebalancing logic to maintain at all: insert and delete just update linked-list pointers at whichever layers the element happens to occupy, no rotations, no rebalancing pass.
+
+<Callout>
+This is the actual sell: a skip list trades a formal worst-case guarantee for a probabilistic one that holds up well in practice, in exchange for an implementation that's substantially simpler to get right than a self-balancing tree.
+</Callout>
+
+## Where this shows up
+
+Redis's sorted set (`ZSET`) is implemented internally as a skip list combined with a hash table - the hash table gives O(1) lookup of a member's score, and the skip list keeps every member ordered by score for fast range queries like "give me the top 10." LevelDB and RocksDB both use skip lists for their in-memory memtable (see the LSM trees lesson), for the same reason: fast sorted inserts without rebalancing overhead sitting in the hot write path.
