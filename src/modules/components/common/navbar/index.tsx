@@ -10,22 +10,14 @@ import {
   REPO_URL,
 } from "@/modules/components/common/site-footer";
 import TopicsMegaMenu from "./topics-mega-menu";
+import LibraryMegaMenu, { libraryItems } from "./library-mega-menu";
 import { topicGroups } from "@/data/topics";
-
-const links = [
-  { name: "Build it", href: "/build" },
-  { name: "Canvas", href: "/canvas" },
-  { name: "Concepts", href: "/concepts" },
-  { name: "Architecture", href: "/architecture" },
-  { name: "Cloud", href: "/cloud" },
-  { name: "Interview prep", href: "/interview-prep" },
-  { name: "Field notes", href: "/blog" },
-];
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [topicsExpanded, setTopicsExpanded] = useState(false);
+  const [libraryExpanded, setLibraryExpanded] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -69,15 +61,25 @@ export default function Navbar() {
           {/* Desktop Nav Links */}
           <nav className="hidden items-center gap-1 md:flex">
             <TopicsMegaMenu />
-            {links.map((link) => (
-              <Link
-                key={link.name}
-                href={link.href}
-                className="px-3 py-1.5 text-xs font-semibold text-black/60 transition hover:text-black"
-              >
-                {link.name}
-              </Link>
-            ))}
+            <Link
+              href="/build"
+              className="px-3 py-1.5 text-xs font-semibold text-black/60 transition hover:text-black"
+            >
+              Build it
+            </Link>
+            <Link
+              href="/interview-prep"
+              className="px-3 py-1.5 text-xs font-semibold text-black/60 transition hover:text-black"
+            >
+              Interview prep
+            </Link>
+            <Link
+              href="/deep-dives"
+              className="px-3 py-1.5 text-xs font-semibold text-black/60 transition hover:text-black"
+            >
+              Deep dives
+            </Link>
+            <LibraryMegaMenu />
           </nav>
 
           {/* Desktop right side: GitHub + CTA */}
@@ -164,16 +166,67 @@ export default function Navbar() {
                   </div>
                 </div>
               </div>
-              {links.map((link) => (
-                <Link
-                  key={link.name}
-                  href={link.href}
-                  onClick={(e) => handleNavClick(e, link.href)}
-                  className="rounded-xl px-3 py-2.5 text-sm font-semibold text-black/80 hover:bg-black/5 cursor-pointer"
+
+              <Link
+                href="/build"
+                onClick={(e) => handleNavClick(e, "/build")}
+                className="rounded-xl px-3 py-2.5 text-sm font-semibold text-black/80 hover:bg-black/5 cursor-pointer"
+              >
+                Build it
+              </Link>
+              <Link
+                href="/interview-prep"
+                onClick={(e) => handleNavClick(e, "/interview-prep")}
+                className="rounded-xl px-3 py-2.5 text-sm font-semibold text-black/80 hover:bg-black/5 cursor-pointer"
+              >
+                Interview prep
+              </Link>
+              <Link
+                href="/deep-dives"
+                onClick={(e) => handleNavClick(e, "/deep-dives")}
+                className="rounded-xl px-3 py-2.5 text-sm font-semibold text-black/80 hover:bg-black/5 cursor-pointer"
+              >
+                Deep dives
+              </Link>
+
+              <button
+                type="button"
+                onClick={() => setLibraryExpanded((v) => !v)}
+                className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-semibold text-black/80 hover:bg-black/5"
+                aria-expanded={libraryExpanded}
+              >
+                Library
+                <svg
+                  viewBox="0 0 12 12"
+                  width="10"
+                  height="10"
+                  className={`transition-transform duration-200 ${libraryExpanded ? "rotate-180" : ""}`}
+                  aria-hidden="true"
                 >
-                  {link.name}
-                </Link>
-              ))}
+                  <path d="M2 4l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+              <div
+                className={`grid transition-all duration-200 ease-in-out ${
+                  libraryExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                }`}
+              >
+                <div className="overflow-hidden">
+                  <div className="ml-2 flex flex-col gap-0.5 border-l border-black/10 pl-3 pb-1">
+                    {libraryItems.map((item) => (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={(e) => handleNavClick(e, item.href)}
+                        className="rounded-lg px-3 py-2 text-xs font-medium text-black/65 hover:bg-black/5 hover:text-black cursor-pointer"
+                      >
+                        {item.title}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
               <Link
                 href="/topics"
                 onClick={(e) => handleNavClick(e, "/topics")}

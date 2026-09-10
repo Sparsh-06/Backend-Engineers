@@ -1,0 +1,32 @@
+---
+title: "How VPNs actually work"
+description: "A VPN doesn't hide you from the internet - it moves where your traffic appears to come from, and encrypts what's inside the tunnel along the way."
+keywords: ["how does a vpn work", "vpn explained", "vpn tunneling", "what does a vpn actually do", "vpn encryption explained", "does a vpn hide your ip"]
+category: "Networking"
+---
+
+## The tunnel, not the invisibility cloak
+
+When you turn on a VPN, your device opens a single encrypted connection to a VPN server somewhere else in the world. Every other connection your device would normally make - to a website, an app's backend, anything - gets wrapped up and sent through that one tunnel first. The VPN server unwraps it, sends the real request out to the actual destination on your behalf, and relays the response back through the tunnel to you.
+
+That's the whole trick. Not invisibility - redirection. To every website and service you talk to, the request looks like it came from the VPN server's IP address, in the VPN server's country, because that's genuinely where it came from as far as the rest of the internet can tell.
+
+## What's actually being encrypted, and from whom
+
+The tunnel between your device and the VPN server is encrypted, which matters most on networks you don't control - airport WiFi, a café, your ISP. Without a VPN, your ISP can see which domains you're connecting to (even over HTTPS, since the destination hostname leaks in the TLS handshake). With a VPN, your ISP sees one encrypted connection to your VPN provider and nothing about what's inside it.
+
+<Callout>
+That protection has a hard edge: it moves your trust, it doesn't remove it. Your ISP can no longer see your traffic - but now your VPN provider can, since the tunnel has to be decrypted somewhere before it reaches the actual destination. "No-logs" policies are a promise, not a technical guarantee you can verify from the outside.
+</Callout>
+
+## Why "hides your IP" is true but incomplete
+
+A site you visit sees the VPN server's IP, not yours - that part is real. What a VPN doesn't touch: cookies you're already logged in with, browser fingerprinting, or anything you type into a form that identifies you. If you log into an account through a VPN, that service still knows exactly who you are; it just sees a different IP doing it. A VPN changes your network-layer identity, not your application-layer one.
+
+## The actual engineering: tunneling protocols
+
+The "how" underneath all this is a tunneling protocol - WireGuard, OpenVPN, or IPsec being the common ones. Their job is the same in each case: establish an encrypted, authenticated channel between two endpoints, then encapsulate ordinary IP packets inside it. WireGuard has become the default choice for most modern VPN services because it does this with a dramatically smaller codebase than OpenVPN (a few thousand lines versus tens of thousands), which matters directly for security - less code means fewer places for a vulnerability to hide, and it's been easier for security researchers to actually audit.
+
+## Why this matters even if you never use a VPN
+
+The same tunnel-plus-encryption pattern shows up constantly in backend systems that have nothing to do with consumer privacy: a service mesh encrypting traffic between microservices inside a data center, a site-to-site VPN connecting an office network to a cloud provider's private network, or a bastion host that every internal request has to tunnel through before reaching a production database. The specific problem - "route traffic somewhere else first, and make sure nobody in between can read it" - is one of the most reused shapes in networking, whether the person using it is trying to watch a show that's not available in their country or an infrastructure team is trying to keep a database off the public internet entirely.

@@ -1,0 +1,32 @@
+---
+title: "How cloud gaming streams a whole computer to your phone"
+description: "Cloud gaming runs the game on a server and streams it to you - your device is just a fast video player with a controller."
+keywords: ["how does cloud gaming work", "geforce now explained", "cloud gaming latency", "how does game streaming work", "cloud gaming architecture", "xbox cloud gaming explained"]
+category: "Media & streaming"
+---
+
+## Your phone isn't playing the game - it's watching it
+
+In cloud gaming, the actual game runs on a real machine with a real GPU sitting in a data center, exactly like it would on a gaming PC or console. Your phone or laptop is doing almost none of the traditional "running the game" work. Instead, every frame the game renders gets encoded into video, streamed to your device, and decoded and displayed - while every button press or stick movement you make gets sent back to the server, which feeds it into the game as if you were sitting in front of it locally.
+
+Your device is, functionally, a very fast video player with a controller attached.
+
+## The budget that makes or breaks the whole idea
+
+This only works if the full loop - your input travels to the server, the server processes it and renders a new frame, that frame gets encoded, streamed back, decoded, and displayed - happens in well under 100 milliseconds, ideally closer to 30-40. Miss that budget and the game feels sluggish and unresponsive, even if the video quality itself looks perfect.
+
+<Callout>
+This is latency, not throughput, as the thing that actually breaks the experience - a concept that shows up constantly in backend systems. You could have enormous bandwidth to stream 4K video smoothly and still have a terrible cloud gaming experience if the round-trip time is too high, because the two are measuring completely different things.
+</Callout>
+
+## Why data center location matters more than internet speed
+
+Because the latency budget is so tight, physical distance to the data center running your game matters enormously - light itself takes roughly 65-70 milliseconds to cross from New York to Tokyo and back, before any processing happens at all. This is why cloud gaming providers run many regional data centers instead of a few huge central ones, and why your experience can change noticeably depending on which of their locations you happen to connect to - it's the same reason a CDN puts content close to users, applied to a service where every millisecond is directly felt rather than just measured.
+
+## The encoding step has to be fast, not just good
+
+Normal video streaming (a movie on Netflix) can spend real time encoding a file carefully in advance, because nobody's waiting on that encode in real time. Cloud gaming can't - every single frame has to be encoded the instant it's rendered, using hardware video encoders built into the server's GPU, because a software encoder fast enough to hit these deadlines reliably doesn't really exist at the quality needed. This is a major reason cloud gaming servers use specific, purpose-built GPU hardware rather than generic cloud compute instances - the encoder built into the silicon is part of what makes the latency budget achievable at all.
+
+## What actually gets sent over the network
+
+It's worth being precise about what's flowing in each direction: a continuous stream of compressed video frames going to you, and a tiny, constant trickle of input events (basically just "these buttons, this stick position, this timestamp") going back to the server. The input direction uses almost no bandwidth at all - the entire bandwidth cost of cloud gaming is the video stream, which is exactly the same kind of adaptive bitrate streaming problem that video platforms solve, just running in both directions with a much stricter latency requirement layered on top.

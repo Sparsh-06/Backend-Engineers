@@ -1,0 +1,32 @@
+---
+title: "How ad blockers actually work"
+description: "An ad blocker isn't detecting ads - it's blocking requests to known ad and tracker domains before they load."
+keywords: ["how do ad blockers work", "ad blocker explained", "how does ublock origin work", "dns filtering explained", "how do ad blockers detect ads", "ad blocker filter lists"]
+category: "Networking"
+---
+
+## It's not looking at the ad - it's looking at the address
+
+A common assumption is that ad blockers somehow visually recognize ads on a page and hide them. Mostly, that's not what's happening. Before your browser even requests an ad, it has to make a network request to some domain to fetch it - and that domain is very often a known advertising or tracking service, reused across thousands of unrelated websites. An ad blocker keeps a list of those domains and request patterns, and simply refuses to let your browser make the request in the first place.
+
+No request means no image, no script, no tracking pixel - and no ad, because the ad was never fetched to begin with.
+
+## The filter list is the actual product
+
+That list - called a filter list - is the real engineering behind an ad blocker, and it's maintained continuously, not written once. EasyList, one of the most widely used ones, is a community-maintained set of pattern rules: block this domain entirely, block this specific URL pattern, hide this specific element if a request to a certain domain succeeds anyway. A blocker like uBlock Origin is mostly an efficient engine for matching every outgoing request against tens of thousands of these rules in milliseconds, not a system that "understands" what an ad looks like.
+
+<Callout>
+This is the same domain-matching idea used in the DNS management category of cloud infrastructure - just aimed at blocking instead of routing. Some ad blockers work at the DNS level for an entire home network (blocking the domain before any device even resolves it), rather than per-request inside one browser.
+</Callout>
+
+## Why some ads get through anyway
+
+Sites that want to defeat ad blocking sometimes serve ads from their own first-party domain instead of a separate ad-network domain - since the request now looks identical to any other request for that site's own content, a generic filter list has no clean way to distinguish it. This is an active, ongoing arms race: sites change how they serve ads, filter-list maintainers add new rules to catch the new pattern, and it repeats.
+
+## What "detecting ads" would actually require
+
+A minority of blocking approaches do go further than domain matching - looking at the structure of the page itself (a suspiciously ad-shaped div, specific CSS classes known ad networks use) and hiding elements after the fact rather than blocking the request. This is more fragile than domain blocking, since it has to be updated every time ad networks change their HTML structure, and it's strictly more expensive to compute, since it means parsing and evaluating rules against the rendered page instead of just checking a URL string against a list before any request is made.
+
+## Where this shows up in real backend systems
+
+The core mechanic - matching a huge number of incoming requests against a large rule set, fast enough to not add noticeable latency - is the same problem an API gateway or a web application firewall solves, just pointed in the opposite direction. An ad blocker decides what a browser is allowed to request; a WAF decides what a server is willing to accept. Same shape of problem: match this request against thousands of rules, in real time, without becoming the bottleneck yourself.

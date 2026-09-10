@@ -1,0 +1,32 @@
+---
+title: "How BitTorrent finds strangers with the file you want"
+description: "BitTorrent finds strangers who already have pieces of your file and downloads from many of them at once."
+keywords: ["how does bittorrent work", "bittorrent protocol explained", "how do torrents find peers", "bittorrent tracker explained", "peer to peer file sharing explained", "distributed hash table explained"]
+category: "Distributed systems"
+---
+
+## No server holds the actual file
+
+A normal download is a client talking to one server that has the whole file. BitTorrent inverts this entirely: a file is split into many small pieces, and those pieces are scattered across a swarm of other people's computers - peers - who each already have some subset of them, usually because they downloaded it earlier themselves. Your client's job is to find as many of those peers as it can and download different pieces from as many of them simultaneously as possible, then stitch the pieces back together locally once it has them all.
+
+There's no single point that ever needs to hold or serve the entire file to everyone.
+
+## Finding the swarm in the first place
+
+Before any of that can happen, your client needs to know who else has pieces of this specific file. That's what a `.torrent` file or a magnet link actually contains: not the file itself, but a cryptographic hash identifying it uniquely, plus the address of a tracker - a lightweight server whose only job is answering "who else is currently downloading or has this file?" Increasingly, torrenting also uses a Distributed Hash Table (a DHT) instead of, or alongside, a tracker - a peer-to-peer lookup system where peers themselves collectively store and answer "who has this" queries, removing even the tracker as a single point that could go down or be blocked.
+
+<Callout>
+A DHT is a real, direct cousin of consistent hashing - both solve "which node is responsible for this piece of data" without any central coordinator, by mapping both keys and nodes onto the same address space and using proximity in that space to decide ownership.
+</Callout>
+
+## Why downloading from many peers at once is actually faster
+
+If ten peers each have a full copy of the file, and you download different pieces from all ten simultaneously instead of the whole thing from just one, your total download speed is roughly the sum of what each individual peer can send you - not capped at any single peer's upload speed. This is the same principle behind sharding a database across many machines instead of one: parallelism across many limited sources beats serial dependence on a single one, even if that one source is technically capable of serving the whole request.
+
+## Why BitTorrent rewards uploading, on purpose
+
+BitTorrent's protocol includes a deliberate incentive mechanism, often summarized as "tit-for-tat": peers preferentially send data to other peers who are also sending data back to them, and can choke (slow down or cut off) peers who only take and never give. This exists because a pure-download-only swarm - everyone taking pieces, nobody sharing what they've got - would collapse the whole advantage of the system. The protocol builds cooperation into its incentive structure directly, rather than relying on anyone's goodwill.
+
+## Where this same shape shows up in legitimate infrastructure
+
+Peer-to-peer distribution without a bottlenecked central server is exactly the problem large software companies face pushing updates to millions of machines at once - and several have built internal, BitTorrent-derived systems for exactly that (large game and OS updates, in particular, are often distributed this way inside a company's own network) since a single central file server trying to serve an update to every machine in a building at once is a real, physical bandwidth bottleneck that peer-to-peer distribution sidesteps entirely.

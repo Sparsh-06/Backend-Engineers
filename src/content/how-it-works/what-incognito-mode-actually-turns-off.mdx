@@ -1,0 +1,32 @@
+---
+title: "What incognito mode actually turns off (and what it doesn't)"
+description: "Incognito mode clears local storage and cookies - it does nothing to what your network or the sites themselves can see."
+keywords: ["does incognito mode hide your ip", "how does incognito mode work", "is incognito mode really private", "private browsing explained", "what does incognito mode actually do", "incognito mode myths"]
+category: "Browsers"
+---
+
+## What's actually different: storage, not visibility
+
+Normal browsing keeps a persistent local store on your device - cookies, browsing history, cached files, local storage that websites write to. Incognito mode gives your browser session a fresh, temporary version of all of that, isolated from your normal profile, and throws it away the moment you close the window. That's genuinely useful: sites won't recognize you from previous visits, and nothing from the session lingers on your device afterward.
+
+That's also the entire scope of what changes. Nothing about how your traffic travels across the network is any different.
+
+## What was never affected in the first place
+
+Your ISP still sees which domains you connect to, the same as always - incognito mode runs entirely on your device and has no effect on the network path your traffic takes. If you're on a work or school network, the same network-level monitoring that would normally apply still applies. And the moment you log into an account - your email, a shopping site, anything - that service knows exactly who you are, incognito or not, because you just told it.
+
+<Callout>
+This is a client-side versus network-level distinction that shows up constantly in real systems: incognito mode changes what your browser stores locally, which is a client-side concern, and has zero effect on what's visible at the network layer, which is a completely separate problem that something like a VPN actually addresses.
+</Callout>
+
+## The technical mechanism: a separate storage partition
+
+Under the hood, most browsers implement private browsing by spinning up an isolated, in-memory (or temporary-on-disk) storage partition for cookies, cache, and site data, completely separate from your normal profile's partition. Regular tabs read and write to one partition; incognito tabs read and write to another. When the incognito window closes, that partition is simply discarded rather than persisted - there was never a "delete history" step happening, because nothing was written to permanent storage to begin with.
+
+## Why sites can sometimes still recognize you
+
+Cookies are blocked from persisting, but a site can still try to identify your browser through fingerprinting - characteristics like your screen size, installed fonts, timezone, and browser version, combined together, that can be similar enough across visits to make a reasonable guess it's the same device, cookies or not. Incognito mode doesn't defend against this at all, because fingerprinting doesn't rely on anything incognito mode clears.
+
+## The general lesson underneath the specific feature
+
+"Where is this data actually stored, and who controls that storage" is a question worth asking about almost any privacy or security feature, not just incognito mode - the same distinction (what's cleared locally versus what's visible to a server or a network in between) determines what a feature like clearing cookies, using a VPN, or logging out of an account each actually accomplish, and none of them do what the other ones do.

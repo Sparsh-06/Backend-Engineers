@@ -1,0 +1,32 @@
+---
+title: "How Netflix turns one video file into 30 different versions"
+description: "Every video gets re-encoded into a ladder of resolutions before anyone watches it, so quality can switch mid-playback."
+keywords: ["how does video transcoding work", "video transcoding explained", "adaptive bitrate streaming explained", "how does netflix streaming work", "video encoding pipeline", "hls vs dash explained"]
+category: "Media & streaming"
+---
+
+## The file you upload is never the file anyone watches
+
+A video source file, straight from a camera or an editing tool, is usually huge and encoded in a way optimized for editing, not for streaming to millions of devices with wildly different screens and connection speeds. Before it's ever watched, a streaming platform runs it through transcoding - decoding the original and re-encoding it into an entire ladder of different versions: several resolutions (4K down to something that works on a slow connection), each at several bitrates, sometimes in multiple codecs entirely, since not every device supports the same ones.
+
+A single movie might turn into dozens of actual files as a result of this one pipeline step.
+
+## Why so many versions of the same video
+
+The whole point is adaptive bitrate streaming: your player doesn't commit to one quality level for the whole video. It downloads the video in short segments - a few seconds each - and before requesting each new segment, it checks how the last one downloaded: fast and smooth, or slow and buffering. Based on that, it requests the next segment from whichever quality level actually matches your current connection, switching up or down as conditions change, mid-video, without you ever seeing a pause for it.
+
+<Callout>
+This is the same mechanism as choosing a fast, low-latency read path versus a bulk one for the same underlying data - a video player is deciding, request by request, which version of the same content best matches its current constraints, exactly like an API might serve different response shapes to different clients based on their needs.
+</Callout>
+
+## Segments, not one giant file
+
+Splitting video into short segments (commonly a few seconds long, described by a manifest file listing every available quality and where to find each segment) is what makes switching quality mid-stream possible at all. If you were streaming one continuous file per quality level, switching would mean starting an entirely new download from scratch. With segments, switching quality just means requesting the next few-second chunk from a different quality's segment list - the player stitches segments from different quality levels together seamlessly, and you'd have a hard time spotting exactly where it happened.
+
+## The two dominant approaches: HLS and DASH
+
+The two major segmented-streaming formats, HLS (built by Apple) and DASH (an open standard), solve the same problem with slightly different manifest formats and segment conventions - which format a platform uses is mostly determined by which devices they need to support natively, since some platforms have built-in support for one and not the other. Functionally, from an engineering standpoint, they're the same idea wearing different clothes.
+
+## Why this is genuinely expensive, and why it's done ahead of time
+
+Transcoding a single video into a full quality ladder is real, significant compute - which is exactly why it happens once, ahead of time, as a batch pipeline job when content is uploaded, not live as each viewer requests it. This is a textbook case for exactly the kind of workflow orchestration and queue-based processing covered elsewhere on this site: a job gets queued when a video is uploaded, a fleet of transcoding workers picks it up and grinds through every quality level, and only once that's done does the video actually become available to stream - the cost is paid once per video, not once per view, no matter how many millions of people end up watching it.
