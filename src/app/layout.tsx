@@ -101,6 +101,9 @@ export const metadata: Metadata = {
       "max-video-preview": -1,
     },
   },
+  other: {
+    "google-adsense-account": "ca-pub-7986220745022584",
+  },
   openGraph: {
     type: "website",
     siteName: "Backend Engineer",
