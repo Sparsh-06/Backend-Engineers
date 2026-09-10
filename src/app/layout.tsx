@@ -193,6 +193,14 @@ export default function RootLayout({ children }: LayoutProps) {
             })(window, document, "clarity", "script", "xyqmv2ecgf");
           `}
         </Script>
+
+        {/* Google AdSense */}
+        <Script
+          async
+          strategy="afterInteractive"
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7986220745022584"
+          crossOrigin="anonymous"
+        />
       </body>
     </html>
   );
