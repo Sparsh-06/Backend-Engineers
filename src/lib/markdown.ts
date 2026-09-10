@@ -30,6 +30,7 @@ const rehypePrettyCodeOptions = {
 
 const CONTENT_DIR = path.join(process.cwd(), "src/content/topics");
 const BUILD_CONTENT_DIR = path.join(process.cwd(), "src/content/build");
+const HOW_IT_WORKS_CONTENT_DIR = path.join(process.cwd(), "src/content/how-it-works");
 
 export type TopicFrontmatter = {
   title: string;
@@ -262,4 +263,34 @@ export async function getBuildContent(slug: string): Promise<BuildContent | null
  */
 export function getAvailableBuildSlugs(): string[] {
   return getAvailableSlugs(BUILD_CONTENT_DIR);
+}
+
+export type HowItWorksFrontmatter = {
+  title: string;
+  description: string;
+  keywords: string[];
+  category: string;
+};
+
+export type HowItWorksContent = {
+  frontmatter: HowItWorksFrontmatter;
+  content: React.ReactElement;
+  toc: TocEntry[];
+  slug: string;
+  lastModified: string;
+};
+
+/**
+ * Reads and parses a single deep-dive explainer markdown file by slug.
+ * Mirrors getBuildContent but reads from src/content/how-it-works.
+ */
+export async function getHowItWorksContent(slug: string): Promise<HowItWorksContent | null> {
+  return readContent<HowItWorksFrontmatter>(HOW_IT_WORKS_CONTENT_DIR, slug);
+}
+
+/**
+ * Returns the slugs of all available deep-dive explainer markdown files.
+ */
+export function getAvailableHowItWorksSlugs(): string[] {
+  return getAvailableSlugs(HOW_IT_WORKS_CONTENT_DIR);
 }

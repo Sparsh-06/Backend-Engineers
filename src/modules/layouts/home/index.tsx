@@ -100,22 +100,7 @@ export default function Home() {
           <CornerMark className="bottom-0 left-0 -translate-x-1/2 translate-y-1/2" />
           <CornerMark className="bottom-0 right-0 translate-x-1/2 translate-y-1/2" />
 
-          <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-            <a
-              href="https://www.producthunt.com/products/backend-engineer?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-backend-engineer"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="shrink-0"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1227185&theme=light&t=1787249936641"
-                alt="Backend Engineer - Backend engineering, explained visually | Product Hunt"
-                width={150}
-                height={32}
-                className="h-7 w-auto"
-              />
-            </a>
+          <div className="flex items-center justify-center">
             <span className="text-center font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-black/55">
               Backend engineering — explained visually
             </span>
@@ -142,7 +127,7 @@ export default function Home() {
               Start exploring <span className="ml-2">→</span>
             </Link>
             <Link
-              href="/topics"
+              href="/architecture"
               className="text-sm font-semibold text-black/70 underline decoration-black/25 underline-offset-[6px] transition hover:text-black hover:decoration-black"
             >
               See the maps
@@ -339,6 +324,12 @@ export default function Home() {
                 label: "18 categories",
                 title: "AWS vs GCP vs Azure",
                 desc: "Cloud services mapped by what they actually do, organized by category instead of vendor marketing names.",
+              },
+              {
+                href: "/deep-dives",
+                label: "12 explainers",
+                title: "Deep Dives",
+                desc: "How VPNs, cloud gaming, BitTorrent, and video streaming actually work - standalone explainers, same no-fluff style as everything else here.",
               },
             ].map((tool) => (
               <Link
@@ -571,6 +562,7 @@ export default function Home() {
                 <li><Link href="/concepts" className="hover:text-white transition">Concepts</Link></li>
                 <li><Link href="/cloud" className="hover:text-white transition">Cloud</Link></li>
                 <li><Link href="/interview-prep" className="hover:text-white transition">Interview prep</Link></li>
+                <li><Link href="/deep-dives" className="hover:text-white transition">Deep dives</Link></li>
               </ul>
             </div>
           </div>

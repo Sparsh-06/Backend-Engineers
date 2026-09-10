@@ -1,0 +1,32 @@
+---
+title: "How a multiplayer game keeps everyone's screen in sync"
+description: "A multiplayer game server decides what's actually true when players see different things at the same instant."
+keywords: ["how do multiplayer games work", "game server architecture explained", "websocket game rooms", "client side prediction explained", "game state synchronization", "how does multiplayer netcode work"]
+category: "Real-time systems"
+---
+
+## The problem: everyone is a little bit in the past
+
+Every player's game client is looking at a slightly stale picture of the world, because it takes real time for anything that happens to travel across the network to everyone else. If two players in different parts of the world both try to pick up the same item at nearly the same instant, their local screens might briefly both show themselves grabbing it - the server has to be the one source of truth that decides who actually got it, and every client has to accept that decision even if it contradicts what they just saw locally.
+
+This is the same core problem as two servers accepting conflicting writes to the same record, just happening dozens of times a second, with a human staring at the result expecting it to feel instant.
+
+## Why the game doesn't just wait for the server every time
+
+If a client waited for a round trip to the server before showing the result of every single action - move forward, swing a weapon - the game would feel unplayably laggy for anyone more than a few milliseconds from the server. Instead, most real-time multiplayer games use client-side prediction: your own client immediately shows the result of your action locally, before the server has even received it, assuming it'll be correct.
+
+<Callout>
+This is a genuinely direct application of optimistic concurrency, the same idea covered in REST API design for handling concurrent updates safely - the client assumes its own action succeeds and shows it immediately, then reconciles with the authoritative result once it actually arrives.
+</Callout>
+
+## What happens when the prediction was wrong
+
+When the server's authoritative update arrives and disagrees with what the client predicted - say, the server decided you were hit by something the client didn't account for - the client has to correct itself. A crude fix would just snap the player to the correct position, which is jarring and visible. Most games instead smoothly reconcile the difference over a few frames, nudging the display gradually toward the correct state rather than teleporting it, so a small misprediction is invisible even though a real correction happened underneath.
+
+## Why the network protocol choice matters here
+
+Multiplayer games generally use UDP rather than TCP for real-time state updates, which sounds backwards until you think about what TCP guarantees: every packet arrives, in order, or the connection stalls waiting for a missing one to be retransmitted. For a fast-moving game, a position update from three frames ago that finally arrives late is worse than useless - you'd rather just get the newest one and move on. UDP doesn't guarantee delivery or order at all, which is exactly what lets a game skip a late, stale update instead of stalling everyone's screen waiting for it to catch up.
+
+## Lag compensation: letting the server rewind time slightly
+
+For anything precision-dependent - did this shot actually hit that player - servers often do something called lag compensation: when your input arrives, the server briefly rewinds its model of the world to what it looked like at the moment your client actually sent the action, checks the hit against that slightly-earlier state, then resumes normal time. It's a deliberate trade-off that favors the shooter's experience of "I clearly hit them" over the target's experience of "I was already behind cover" - and different games tune that balance differently depending on what kind of fairness they're optimizing for.

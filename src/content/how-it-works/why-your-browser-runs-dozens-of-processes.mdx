@@ -1,0 +1,32 @@
+---
+title: "Why your browser runs dozens of separate processes"
+description: "Modern browsers run each tab as its own isolated process, the same way backend systems isolate services."
+keywords: ["why does chrome have so many processes", "browser task manager explained", "browser multi process architecture", "chrome process per tab explained", "site isolation explained", "how do browsers sandbox tabs"]
+category: "Browsers"
+---
+
+## One crash shouldn't take down every tab
+
+Early browsers ran as a single process handling every open tab. It worked, until one tab hit a bug or a misbehaving plugin - and the entire browser, every tab you had open, crashed with it. Modern browsers deliberately split work across many separate operating-system processes instead: typically one process per tab (or per group of tabs from the same site), a separate process for the browser's own UI, and separate processes for things like the GPU and extensions.
+
+If one tab's page crashes now, that one process dies - you see an error in that single tab, and every other tab keeps running, completely unaffected.
+
+## This is process isolation, the exact same concept covered in backend systems
+
+A crashed worker thread or a crashed microservice shouldn't take down the rest of a backend system either - that's the entire argument for isolating work into separate processes instead of running everything in one shared process space. Your browser's tab-per-process model is a client-side application of precisely the same idea: contain the blast radius of a failure to the smallest unit that actually failed, instead of letting it cascade to everything else sharing the same process.
+
+<Callout>
+This is why a Node.js service might use worker threads or the Cluster module to isolate CPU-heavy or unstable work - a crash in an isolated worker can be caught and the worker restarted, without taking the whole server down with it. Your browser is running that same design decision, just for web pages instead of backend jobs.
+</Callout>
+
+## Security is actually the bigger reason, not just stability
+
+Beyond crash containment, running each site in its own process enables something called site isolation: the operating system itself can enforce that a process for one website simply cannot read another process's memory, even if a bug inside the browser's rendering code is somehow tricked into trying. This matters enormously for security - a malicious page exploiting a rendering engine vulnerability is contained to its own process's memory, meaning it can't casually reach into a different tab's memory to steal, say, your banking session's data, even if it's open in an adjacent tab at the exact same time.
+
+## Why this costs you more memory
+
+Separate processes can't casually share memory the way threads within one process can - some genuine duplication happens, which is a real part of why a browser with many tabs open can use noticeably more total memory than the naive "one big process" model would. This is a deliberate trade-off, not an oversight: browser vendors have judged that the stability and security benefit of isolation is worth the memory cost, and modern browsers work hard to claw some of that cost back (throttling or partially unloading tabs you haven't looked at in a while, sharing some genuinely shareable resources across processes where it's actually safe to do so).
+
+## The pattern generalizes past browsers entirely
+
+"Isolate the risky or unpredictable unit of work into its own process, accept the resource overhead, gain fault containment and security boundaries in return" is a trade-off that shows up anywhere a system runs code it doesn't fully trust or can't fully predict the behavior of - a browser running arbitrary websites, a serverless platform running arbitrary customer functions, a CI system running arbitrary build scripts. Different domain, identical underlying decision.

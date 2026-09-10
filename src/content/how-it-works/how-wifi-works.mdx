@@ -1,0 +1,30 @@
+---
+title: "How WiFi actually gets data through the air"
+description: "WiFi is a shared radio channel - devices take turns politely, and slowness is usually that breaking down."
+keywords: ["how does wifi work", "wifi explained", "wifi vs bluetooth explained", "how does wireless internet work", "wifi channels explained", "why is my wifi slow"]
+category: "Networking"
+---
+
+## It's one radio channel, shared by everyone in range
+
+WiFi devices communicate over radio waves on shared frequency bands (mainly 2.4GHz and 5GHz), and critically, only one device on a given channel can transmit at a time without the signals colliding into noise. Your router and every device connected to it are effectively taking turns on a shared medium - much closer to a radio conversation where only one person can talk at once than to a wired connection where every device has its own dedicated physical path.
+
+## The actual protocol for taking turns
+
+WiFi's rule for sharing the channel is called CSMA/CA - carrier-sense multiple access with collision avoidance. Before transmitting, a device listens to check if the channel is currently in use; if it's busy, the device waits a randomized amount of time before checking again, specifically so that two devices both waiting for the channel to free up don't immediately transmit at the exact same instant and collide anyway. It's a distributed, cooperative protocol - there's no central authority moment-to-moment deciding whose turn it is, just every device independently following the same listen-and-back-off rule.
+
+<Callout>
+This is conceptually close to the exponential backoff used in retry logic for a failing API call - both are dealing with contention (too many things trying to do the same thing at once) by having participants wait a randomized, growing amount of time before retrying, specifically to avoid everyone retrying in perfect lockstep and colliding again.
+</Callout>
+
+## Why more devices on your network make everything slower
+
+Because every device is sharing the same channel and has to wait its turn, WiFi doesn't scale the way you might expect - adding more devices doesn't just split a fixed pool of bandwidth evenly, it also means more contention for channel access itself, with more waiting and more collisions. This is why a WiFi network can feel dramatically slower at a busy conference or apartment building with many overlapping networks, even if your own internet plan's bandwidth hasn't changed at all - the bottleneck has shifted from "how much data can theoretically move" to "how much time is spent waiting for a clear turn to transmit."
+
+## Why channels and frequency bands matter
+
+Routers can operate on different channels within a band specifically to reduce this contention - two networks on different, non-overlapping channels don't compete for the same airtime the way two networks on the same channel do. The newer 5GHz (and 6GHz) bands offer more available channels and less interference than the older, more crowded 2.4GHz band, at the cost of a shorter effective range, since higher frequencies attenuate faster through walls and distance. That range-versus-congestion trade-off is a real, deliberate engineering choice, not just marketing - it's why some devices default to 2.4GHz for range and others prefer 5GHz for speed when both are available.
+
+## The bigger idea: physical constraints shape protocol design
+
+WiFi's entire protocol - listen first, randomize your wait, expect and tolerate collisions - exists because of one unavoidable physical fact: radio is a shared, invisible medium with no natural boundaries between one device's signal and another's. Wired Ethernet doesn't need nearly as much of this negotiation because each device effectively gets its own physical path. It's a clean example of a theme that shows up across backend systems too: protocols and algorithms are shaped directly by the real physical or practical constraints of their medium, not designed in a vacuum.

@@ -5,6 +5,7 @@ import { topicGroupsFlat } from "@/data/topics";
 import { architectureProfiles } from "@/data/architecture-profiles";
 import { architectureDeepDives } from "@/data/architecture-deep-dives";
 import { buildProjects } from "@/data/build-projects";
+import { howItWorksArticles } from "@/data/how-it-works";
 
 /**
  * Real file mtime for a piece of MDX content, falling back to `now` only if
@@ -33,6 +34,14 @@ function buildProjectMtime(slug: string): Date {
 	return new Date();
 }
 
+function howItWorksMtime(slug: string): Date {
+	for (const ext of [".mdx", ".md"]) {
+		const filePath = path.join(process.cwd(), "src/content/how-it-works", `${slug}${ext}`);
+		if (fs.existsSync(filePath)) return fs.statSync(filePath).mtime;
+	}
+	return new Date();
+}
+
 function architectureProfilesMtime(): Date {
 	const filePath = path.join(process.cwd(), "src/data", "architecture-profiles.ts");
 	return fs.existsSync(filePath) ? fs.statSync(filePath).mtime : new Date();
@@ -56,6 +65,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
 		"/architecture",
 		"/cloud",
 		"/interview-prep",
+		"/deep-dives",
 		"/blog",
 	];
 	const coreEntries = corePages.map((path, index) => ({
@@ -98,5 +108,19 @@ export default function sitemap(): MetadataRoute.Sitemap {
 		priority: 0.75,
 	}));
 
-	return [...coreEntries, ...topicEntries, ...architectureEntries, ...deepDiveEntries, ...buildEntries];
+	const howItWorksEntries = howItWorksArticles.map((article) => ({
+		url: `${baseUrl}/deep-dives/${article.slug}`,
+		lastModified: howItWorksMtime(article.slug),
+		changeFrequency: "monthly" as const,
+		priority: 0.65,
+	}));
+
+	return [
+		...coreEntries,
+		...topicEntries,
+		...architectureEntries,
+		...deepDiveEntries,
+		...buildEntries,
+		...howItWorksEntries,
+	];
 }

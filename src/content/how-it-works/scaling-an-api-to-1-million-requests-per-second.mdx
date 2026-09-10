@@ -1,0 +1,38 @@
+---
+title: "How to scale an API to 1 million requests per second"
+description: "A million requests per second isn't one big idea - it's a dozen ordinary ideas, correctly layered together."
+keywords: ["how to scale an api", "scale api to millions of requests", "high throughput api design", "horizontal scaling explained", "how to design a scalable backend", "system design for scale"]
+category: "Distributed systems"
+---
+
+## There's no single trick at this scale
+
+A million requests per second is a number that sounds like it needs some exotic, secret technique. In practice, it's almost always the same handful of ideas covered elsewhere on this site - each one individually simple - layered on top of each other correctly, with every assumption that "there's just one of this" removed from the design entirely. The hard part isn't any single piece; it's making sure none of the pieces you already know quietly becomes the one thing that can't scale.
+
+## Start by killing the easy requests before they reach real work
+
+At real scale, the cheapest request is the one that never reaches your application code at all. A CDN serves static assets and cacheable responses from edge locations close to the user, so a huge share of traffic never touches your origin servers in the first place. Behind that, an in-memory or Redis-backed cache absorbs read-heavy traffic that doesn't need to hit a database on every request - if a piece of data is read a thousand times more often than it changes, serving it from cache instead of recomputing it every time is the single highest-leverage change available.
+
+## No server can be a single point that holds everything
+
+Every server in the fleet has to be stateless - no server can be the only place holding a user's session, a piece of in-flight data, or any assumption that "the next request from this user comes back to me." The moment that's true, requests can be freely distributed across as many server instances as needed, behind a load balancer, and instances can be added or removed based on real-time load without anything breaking.
+
+<Callout>
+This is exactly the constraint covered in statelessness - and at this scale, it's not optional or a nice-to-have. A single stateful server is a hard ceiling on how far the whole system can scale, no matter how much you scale everything around it.
+</Callout>
+
+## The database becomes the real bottleneck, so it gets split too
+
+Once the server layer is horizontally scalable, the database is usually the next wall you hit - a single database instance has a real ceiling on connections and write throughput, no matter how powerful the machine is. The standard answer is sharding: splitting data across many database instances by some key (often user ID or a similar natural partition), so no single database has to hold or serve all of it, combined with consistent hashing so that adding more shards later doesn't require reshuffling nearly all the existing data.
+
+## Not every request needs an answer right now
+
+Some work genuinely doesn't need to happen synchronously inside the request-response cycle at all - sending a notification, updating an analytics count, generating a report. Pushing that work onto a message queue and processing it asynchronously means the API can respond fast and defer the actual work to a fleet of background workers that scale independently from the request-serving layer, and a temporary backlog in the queue degrades gracefully instead of taking down the whole API.
+
+## Rate limiting protects the system you just built
+
+None of the above matters if one misbehaving or unexpectedly popular client can still overwhelm the system - which is exactly why rate limiting, enforced globally across the whole fleet rather than per-instance, is part of the design and not an afterthought bolted on later. At this scale, fairness between clients is a reliability requirement, not just a fairness one: one client's runaway traffic degrading service for everyone else is itself an outage.
+
+## The actual skill being tested
+
+None of these ideas - caching, statelessness, sharding, async processing, rate limiting - are individually advanced. What separates a system that hits a million requests per second from one that falls over at ten thousand is whether every one of these is actually in place, correctly, everywhere it needs to be, with no quiet exception left over from an earlier, smaller version of the system.

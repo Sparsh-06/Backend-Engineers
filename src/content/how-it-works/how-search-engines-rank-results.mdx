@@ -1,0 +1,32 @@
+---
+title: "How search engines actually rank results"
+description: "Finding matching documents is cheap. Ranking them - deciding what actually answers your question - is the real work."
+keywords: ["how do search engines work", "bm25 explained", "vector search explained", "how does google search rank pages", "hybrid search explained", "semantic search vs keyword search"]
+category: "Search & data"
+---
+
+## Finding matches is the easy 10%
+
+Given a search index - essentially a hash table mapping each word to every document containing it - finding every document that contains your search terms is a fast, solved problem. The actual hard problem search engines spend most of their effort on is ranking: given a thousand documents that all technically contain your words, which handful are actually what you meant?
+
+Two genuinely different techniques answer that question today, and most real search systems now combine both.
+
+## BM25: scoring exact word matches, properly
+
+BM25 is a refinement of the intuitive idea "the more a document mentions your search term, the more relevant it probably is" - but a naive version of that idea breaks in an obvious way: a document that says a common word like "the" a hundred times shouldn't outrank one that precisely matches a rare, specific term once. BM25 corrects for this with two adjustments: it weights rarer terms more heavily than common ones (a match on "consistent hashing" counts for more than a match on "the"), and it dampens the benefit of a word appearing many more times, since going from 1 mention to 2 matters more than going from 20 mentions to 21.
+
+<Callout>
+This is the same "diminishing returns" instinct behind why a cache's hit rate improvement shrinks as you add more capacity past a certain point - BM25 applies that same curve to how much extra relevance a repeated word actually adds.
+</Callout>
+
+## Vector search: matching meaning instead of exact words
+
+BM25 has a hard limit: it only matches words that are literally present. Search "how to make my API faster" and BM25 won't surface a great document titled "reducing backend latency," because it shares no exact words with your query at all, despite meaning almost the same thing. Vector search solves this differently - a machine learning model converts both your query and every document into a list of numbers (an embedding) positioned in a high-dimensional space, such that texts with similar meaning end up mathematically close together, regardless of matching exact wording. Finding relevant results becomes a geometry problem: find the documents whose vectors are nearest to your query's vector.
+
+## Why real systems use both together
+
+BM25 is fast, cheap, and extremely precise when someone searches for an exact term, a product code, or a specific name - vector search can actually do worse here, since "meaning-based" similarity sometimes blurs past an exact match that really mattered. Vector search wins when the query and the answer share intent but not vocabulary. Most production search systems today run hybrid search: both techniques score every candidate, and the two scores get combined (often with the vector score narrowing down candidates fast using an approximate nearest-neighbor index, and BM25 helping fine-tune the final ranking, or vice versa depending on the system).
+
+## The actual infrastructure underneath a vector search
+
+Searching for "nearest" vectors among millions or billions of embeddings by brute-force distance calculation would be far too slow to run per query - so vector search systems use approximate nearest-neighbor indexes (HNSW is the most common one today), a data structure that trades a small amount of accuracy for a massive speedup, letting a similarity search that would otherwise scan the whole dataset instead touch only a small, relevant fraction of it. It's the same underlying trade-off bloom filters make - give up perfect precision deliberately, in exchange for being fast enough to actually use at scale.
