@@ -13,14 +13,18 @@ Most backend content assumes you already know the fundamentals and jumps straigh
 
 Nothing on this list is a placeholder page. If it's linked in the nav, it has real content behind it.
 
-- **[Topics](https://www.backendengineer.in/topics)** - 32 published lessons across 3 live curriculum groups, each with plain-English explanations, real code, and at least one interactive visual (a request-flow diagram, a side-by-side comparison, a step-through timeline, or a memory map).
+- **[Topics](https://www.backendengineer.in/topics)** - 42 published lessons across 4 live curriculum groups, each with plain-English explanations, real code, and at least one interactive visual (a request-flow diagram, a side-by-side comparison, a step-through timeline, or a memory map).
   - **Backend fundamentals** (14 lessons) - what a server is, the client-server model, HTTP basics, statelessness, APIs, idempotency, middleware, and more.
-  - **Node.js runtimes** (8 lessons) - the event loop, async I/O, worker threads vs. cluster, streams, garbage collection, modules, error handling, and how the HTTP server actually works underneath.
+  - **Language runtimes** (8 lessons) - the Node.js event loop, async I/O, worker threads vs. cluster, streams, garbage collection, modules, error handling, and how the HTTP server actually works underneath.
   - **Protocols & APIs** (10 lessons) - TCP/TLS, HTTP/1.1 vs. 2 vs. 3, REST & OpenAPI, GraphQL, gRPC & Protobuf, real-time communication (WebSockets/SSE/long-polling), proxies, API gateways, auth (JWT/OAuth/OIDC), and rate limiting.
+  - **Data structures and algorithms, in context** (10 lessons) - hash tables, LRU caches, consistent hashing, B-trees, LSM-trees, bloom filters, skip lists, tries, priority queues, and Merkle trees - each grounded in the specific backend problem it actually solves, not a generic interview-prep drill.
 - **[Build It](https://www.backendengineer.in/build)** - guided, from-scratch projects with real working code and the specific problems that only show up once you build the thing yourself: a token-bucket rate limiter, a URL shortener, a real-time chat server with Redis pub/sub for scaling across instances.
-- **[Architecture](https://www.backendengineer.in/architecture)** - how Netflix, Uber, Discord, and Stripe actually scale, with named tech stacks and plain-language explanations of what each piece does. Includes deep dives grounded in real published engineering blog posts (Netflix's real-time graph, Uber's gRPC migration) - explained in our own words, properly credited, not copied.
-- **[Cloud](https://www.backendengineer.in/cloud)** - a category-first reference mapping the same concept across AWS, GCP, and Azure (12 categories: compute, storage, databases, caching, networking, and more), so you can see what each provider actually calls the thing you're looking for.
-- **[Concepts](https://www.backendengineer.in/concepts)** - a searchable glossary of 22 backend terms in plain English, cross-linked to the full lessons where one exists.
+- **[Architecture](https://www.backendengineer.in/architecture)** - how Netflix, Uber, Discord, Stripe, Airbnb, and Spotify actually scale, with named tech stacks and plain-language explanations of what each piece does. Includes deep dives grounded in real published engineering blog posts (Netflix's real-time graph, Uber's gRPC migration) - explained in our own words, properly credited, not copied.
+- **[Canvas](https://www.backendengineer.in/canvas)** - an interactive system design tool. Drag components onto a canvas, wire them into a system, and run a load simulation that shows exactly where it breaks and why - a load balancer, cache, or database becoming a bottleneck or a single point of failure.
+- **[Interview Prep](https://www.backendengineer.in/interview-prep)** - 54 real interview questions across 18 topics, each leveled for SDE1, SDE2, or SDE3+/Senior, with a model answer and a link back to the full lesson.
+- **[Deep Dives](https://www.backendengineer.in/deep-dives)** - 12 standalone explainers for the systems behind things people use every day - how a VPN actually works, how BitTorrent finds strangers with your file, how to scale an API to 1M req/s - written in the same no-fluff style as the curriculum, not a separate voice.
+- **[Cloud](https://www.backendengineer.in/cloud)** - a category-first reference mapping the same concept across AWS, GCP, and Azure (18 categories: compute, storage, databases, caching, networking, secrets management, observability, and more), so you can see what each provider actually calls the thing you're looking for.
+- **[Concepts](https://www.backendengineer.in/concepts)** - a searchable glossary of 36 backend terms in plain English, cross-linked to the full lessons where one exists.
 - **[Field Notes](https://www.backendengineer.in/blog)** - reactions to real engineering postmortems and incidents. Honestly empty until there's something real worth reacting to - no filler posts.
 
 ## Tech stack
@@ -43,16 +47,22 @@ src/
 │   ├── build/[slug]/         # Build-it project pages
 │   ├── architecture/
 │   │   └── [company]/[deepdive]/  # Company profiles + deep dives
-│   ├── cloud/, concepts/, blog/
+│   ├── deep-dives/[slug]/    # Standalone "how it works" explainers, MDX-rendered
+│   ├── interview-prep/       # Role-leveled interview question bank
+│   ├── canvas/, cloud/, concepts/, blog/
+│   ├── embed/card.js/        # Self-contained ad widget for partner sites (Shadow DOM)
 │   ├── sitemap.ts, robots.ts, manifest.ts
 │   └── opengraph-image.tsx   # + one per dynamic route segment
 ├── content/
 │   ├── topics/*.mdx          # One file per published lesson
-│   └── build/*.mdx           # One file per build-it project
+│   ├── build/*.mdx           # One file per build-it project
+│   └── how-it-works/*.mdx    # One file per Deep Dives explainer
 ├── data/
 │   ├── topics.ts             # Curriculum structure, keywords, visuals - single source of truth
 │   ├── architecture-profiles.ts / architecture-deep-dives.ts
 │   ├── build-projects.ts, cloud-services.ts, glossary.ts, field-notes.ts
+│   ├── how-it-works.ts       # Deep Dives metadata
+│   └── interview-questions.ts
 ├── lib/
 │   ├── markdown.ts           # MDX compilation pipeline (highlighting, glossary links, components)
 │   └── rehype-glossary.ts    # The auto-linking plugin
@@ -94,18 +104,12 @@ pnpm lint    # eslint
 - Found a real vulnerability? See [SECURITY.md](./SECURITY.md) - please
   don't open a public issue for it.
 
-## SEO & discovery
-
-- Every page ships real `<title>`/description/canonical metadata and JSON-LD structured data (`Organization`, `WebSite`, `TechArticle`, `CollectionPage`, `DefinedTermSet`, `BreadcrumbList` - scoped to what's actually true; empty sections like Field Notes deliberately don't get structured data claiming content that doesn't exist).
-- `sitemap.ts` sources `lastModified` from real file mtimes per lesson/project, not a blanket "now" on every build.
-- A GitHub Action (`.github/workflows/notify-search-engines.yml`) pings Google Search Console and IndexNow on every push to `main`, so new or updated pages get crawled faster instead of waiting for a routine re-crawl.
-
 ## Curriculum roadmap
 
-32 lessons are live. The full planned curriculum is larger - these groups are scaffolded in `src/data/topics.ts` (title, description, keywords already written) but don't have lesson content yet, so they're not published:
+42 lessons are live. The full planned curriculum is larger - these groups are scaffolded in `src/data/topics.ts` (title, description, keywords already written) but don't have lesson content yet, so they're not published:
 
 - **Data storage** - ACID, isolation levels, indexing, connection pooling, MongoDB, Redis, wide-column stores, caching patterns
-- **Distributed architecture** - scaling, load balancing, consistent hashing, queues vs. streams, delivery semantics, fault tolerance, consensus
+- **Distributed architecture** - scaling, load balancing, queues vs. streams, delivery semantics, fault tolerance, consensus
 - **Cloud & platform** - containers, Kubernetes, serverless, CDNs, VPCs, observability
 - **Production scenarios** - end-to-end system design walkthroughs
 - A few additional language-runtime lessons (Go, Python, JVM) alongside the Node.js group
@@ -125,8 +129,7 @@ unsolicited content PRs, so the voice stays consistent across the whole site.
 This repository uses two licenses for two different things:
 
 - **Code** (everything except `src/content/`) - [MIT](./LICENSE). Reuse the
-  components, the MDX pipeline, the visuals, the SEO setup, whatever's
-  useful.
+  components, the MDX pipeline, the visuals, whatever's useful.
 - **Lesson content** (`src/content/`) - [CC BY-NC-ND 4.0](./src/content/LICENSE).
   Read it, learn from it, link to it - but it's not free to republish,
   repackage, or reuse commercially. The writing itself is the thing this
