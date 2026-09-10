@@ -137,4 +137,4 @@ This repository uses two licenses for two different things:
 
 ---
 
-Built and maintained by [Sparsh Sharma](https://www.backendengineer.in). Questions: `contact@backendengineer.in`.
+Built and maintained by [Sparrsh Sharma](https://linkedin.com/in/sparshdev). Questions: `contact@backendengineer.in`.
