@@ -8,6 +8,21 @@ type Params = { company: string };
 
 const siteName = "Backend Engineer";
 
+// The full `problem` field is written for the page body, not a search
+// snippet - concatenated with the tagline it runs 280-400 characters,
+// well past where Google truncates a result (~155-160). This trims it to
+// a clean word boundary so the actual displayed snippet isn't cut off
+// mid-sentence.
+function buildMetaDescription(tagline: string, problem: string, maxLength = 155): string {
+  const base = `${tagline}.`;
+  const budget = maxLength - base.length - 1;
+  if (budget <= 20) return base.length <= maxLength ? base : `${base.slice(0, maxLength - 1)}…`;
+  let snippet = problem.slice(0, budget);
+  const lastSpace = snippet.lastIndexOf(" ");
+  if (lastSpace > 0) snippet = snippet.slice(0, lastSpace);
+  return `${base} ${snippet}…`;
+}
+
 export function generateStaticParams() {
   return architectureProfiles.map((profile) => ({ company: profile.slug }));
 }
@@ -25,7 +40,7 @@ export async function generateMetadata({
   }
 
   const title = `How ${profile.company} Scaled Its Backend`;
-  const description = `${profile.tagline}. ${profile.problem}`;
+  const description = buildMetaDescription(profile.tagline, profile.problem);
   const canonical = `/architecture/${company}`;
 
   return {

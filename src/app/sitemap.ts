@@ -47,7 +47,17 @@ export default function sitemap(): MetadataRoute.Sitemap {
 	const baseUrl = "https://www.backendengineer.in";
 	const now = new Date();
 
-	const corePages = ["", "/topics", "/build", "/concepts", "/architecture", "/cloud", "/blog"];
+	const corePages = [
+		"",
+		"/topics",
+		"/build",
+		"/canvas",
+		"/concepts",
+		"/architecture",
+		"/cloud",
+		"/interview-prep",
+		"/blog",
+	];
 	const coreEntries = corePages.map((path, index) => ({
 		url: `${baseUrl}${path}`,
 		lastModified: now,

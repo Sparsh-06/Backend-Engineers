@@ -129,6 +129,18 @@ export const cloudServiceCategories: CloudServiceCategory[] = [
     relatedTopicSlug: "latency-vs-throughput",
   },
   {
+    slug: "dns-management",
+    category: "DNS management",
+    whatItMeans:
+      "The managed service that translates a domain name into the IP address (or another service) it should route to, and lets you control that mapping without running your own name servers.",
+    services: [
+      { provider: "AWS", name: "Route 53" },
+      { provider: "GCP", name: "Cloud DNS" },
+      { provider: "Azure", name: "Azure DNS" },
+    ],
+    relatedTopicSlug: "url-to-response",
+  },
+  {
     slug: "api-gateway",
     category: "API gateway",
     whatItMeans:
@@ -150,5 +162,63 @@ export const cloudServiceCategories: CloudServiceCategory[] = [
       { provider: "GCP", name: "Cloud IAM" },
       { provider: "Azure", name: "Microsoft Entra ID" },
     ],
+  },
+  {
+    slug: "secrets-management",
+    category: "Secrets management",
+    whatItMeans:
+      "A locked-down store for API keys, database passwords, and certificates, so they never end up hardcoded in source or plaintext config - services fetch them at runtime instead, and rotation happens in one place.",
+    services: [
+      { provider: "AWS", name: "Secrets Manager" },
+      { provider: "GCP", name: "Secret Manager" },
+      { provider: "Azure", name: "Key Vault" },
+    ],
+    relatedTopicSlug: "environment-variables",
+  },
+  {
+    slug: "observability",
+    category: "Monitoring & observability",
+    whatItMeans:
+      "The managed layer that collects logs, metrics, and traces from everything running in your account, so you can see what a system is actually doing and get paged before a user notices something's wrong.",
+    services: [
+      { provider: "AWS", name: "CloudWatch" },
+      { provider: "GCP", name: "Cloud Monitoring" },
+      { provider: "Azure", name: "Azure Monitor" },
+    ],
+    relatedTopicSlug: "latency-vs-throughput",
+  },
+  {
+    slug: "ci-cd",
+    category: "CI/CD pipelines",
+    whatItMeans:
+      "A managed pipeline that builds, tests, and deploys your code automatically whenever you push a change, instead of anyone running those steps by hand.",
+    services: [
+      { provider: "AWS", name: "CodePipeline" },
+      { provider: "GCP", name: "Cloud Build" },
+      { provider: "Azure", name: "Azure Pipelines" },
+    ],
+  },
+  {
+    slug: "data-warehouse",
+    category: "Data warehousing & analytics",
+    whatItMeans:
+      "A database built for running slow, heavy analytical queries across huge amounts of historical data, kept separate from the fast operational database your app actually reads and writes during normal traffic.",
+    services: [
+      { provider: "AWS", name: "Redshift" },
+      { provider: "GCP", name: "BigQuery" },
+      { provider: "Azure", name: "Synapse Analytics" },
+    ],
+  },
+  {
+    slug: "workflow-orchestration",
+    category: "Workflow orchestration",
+    whatItMeans:
+      "A managed service for coordinating a sequence of steps across multiple functions or services - retries, waits, branching - without hand-rolling that state machine yourself.",
+    services: [
+      { provider: "AWS", name: "Step Functions" },
+      { provider: "GCP", name: "Workflows" },
+      { provider: "Azure", name: "Logic Apps" },
+    ],
+    relatedTopicSlug: "sync-vs-async",
   },
 ];

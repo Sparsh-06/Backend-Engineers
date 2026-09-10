@@ -3,7 +3,12 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { GitHubIcon, REPO_URL } from "@/modules/components/common/site-footer";
+import {
+  GitHubIcon,
+  InstagramIcon,
+  INSTAGRAM_URL,
+  REPO_URL,
+} from "@/modules/components/common/site-footer";
 import TopicsMegaMenu from "./topics-mega-menu";
 import { topicGroups } from "@/data/topics";
 
@@ -13,6 +18,7 @@ const links = [
   { name: "Concepts", href: "/concepts" },
   { name: "Architecture", href: "/architecture" },
   { name: "Cloud", href: "/cloud" },
+  { name: "Interview prep", href: "/interview-prep" },
   { name: "Field notes", href: "/blog" },
 ];
 
@@ -84,6 +90,15 @@ export default function Navbar() {
               className="text-black/45 transition hover:text-black"
             >
               <GitHubIcon />
+            </a>
+            <a
+              href={INSTAGRAM_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Backend Engineer on Instagram"
+              className="text-black/45 transition hover:text-black"
+            >
+              <InstagramIcon />
             </a>
             <Link
               href="/topics"
@@ -166,15 +181,26 @@ export default function Navbar() {
               >
                 Explore topics →
               </Link>
-              <a
-                href={REPO_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-1 flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-semibold text-black/55 hover:bg-black/5"
-              >
-                <GitHubIcon />
-                GitHub
-              </a>
+              <div className="mt-1 flex items-center gap-2">
+                <a
+                  href={REPO_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-semibold text-black/55 hover:bg-black/5"
+                >
+                  <GitHubIcon />
+                  GitHub
+                </a>
+                <a
+                  href={INSTAGRAM_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-semibold text-black/55 hover:bg-black/5"
+                >
+                  <InstagramIcon />
+                  Instagram
+                </a>
+              </div>
             </nav>
           </div>
         </div>
