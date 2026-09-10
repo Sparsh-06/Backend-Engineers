@@ -1,7 +1,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import Navbar from "@/modules/components/common/navbar";
-import { GitHubIcon, REPO_URL } from "@/modules/components/common/site-footer";
+import {
+  GitHubIcon,
+  InstagramIcon,
+  INSTAGRAM_URL,
+  REPO_URL,
+} from "@/modules/components/common/site-footer";
 import { visibleTopicGroups, topicGroupsFlat } from "@/data/topics";
 import { architectureProfiles } from "@/data/architecture-profiles";
 
@@ -53,9 +58,9 @@ const faqs = [
   {
     question: "Is it just lessons, or is there anything hands-on?",
     answer:
-      "An interactive system design canvas, three build-it-yourself projects, and real company architecture case studies.",
+      "An interactive system design canvas, three build-it-yourself projects, real company architecture case studies, and role-leveled interview questions.",
     schemaAnswer:
-      "Beyond the written lessons, the site includes an interactive System Design Canvas for simulating architecture under load, three hands-on build projects (a rate limiter, a URL shortener, and a real-time chat server), and architecture case studies on how Netflix, Uber, Discord, and Stripe actually run their systems.",
+      "Beyond the written lessons, the site includes an interactive System Design Canvas for simulating architecture under load, three hands-on build projects (a rate limiter, a URL shortener, and a real-time chat server), architecture case studies on how Netflix, Uber, Discord, Stripe, Airbnb, and Spotify actually run their systems, and interview questions leveled by role (SDE1, SDE2, SDE3+/Senior) for each topic covered.",
   },
 ];
 
@@ -232,7 +237,7 @@ export default function Home() {
             </Link>
           </div>
 
-          <div className="grid gap-5 pt-8 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-5 pt-8 sm:grid-cols-2 lg:grid-cols-3">
             {architectureProfiles.map((profile) => (
               <Link
                 key={profile.slug}
@@ -303,8 +308,14 @@ export default function Home() {
             </h2>
           </div>
 
-          <div className="mt-14 grid gap-5 border-t border-black/15 pt-10 sm:grid-cols-2">
+          <div className="mt-14 grid gap-5 border-t border-black/15 pt-10 sm:grid-cols-2 lg:grid-cols-3">
             {[
+              {
+                href: "/interview-prep",
+                label: "54 questions",
+                title: "Interview Prep",
+                desc: "Real interview questions, leveled for SDE1, SDE2, and SDE3+/Senior - each one tied to the full lesson behind it, not a generic list.",
+              },
               {
                 href: "/canvas",
                 label: "Interactive",
@@ -319,13 +330,13 @@ export default function Home() {
               },
               {
                 href: "/concepts",
-                label: "23 terms",
+                label: "36 terms",
                 title: "Glossary",
                 desc: "Backend terms defined in plain English - idempotency, backpressure, p99 latency - each linked back to the full lesson.",
               },
               {
                 href: "/cloud",
-                label: "12 categories",
+                label: "18 categories",
                 title: "AWS vs GCP vs Azure",
                 desc: "Cloud services mapped by what they actually do, organized by category instead of vendor marketing names.",
               },
@@ -559,6 +570,7 @@ export default function Home() {
                 <li><Link href="/architecture" className="hover:text-white transition">Architecture</Link></li>
                 <li><Link href="/concepts" className="hover:text-white transition">Concepts</Link></li>
                 <li><Link href="/cloud" className="hover:text-white transition">Cloud</Link></li>
+                <li><Link href="/interview-prep" className="hover:text-white transition">Interview prep</Link></li>
               </ul>
             </div>
           </div>
@@ -573,6 +585,15 @@ export default function Home() {
               >
                 <GitHubIcon />
                 Contribute on GitHub
+              </a>
+              <a
+                href={INSTAGRAM_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 hover:text-white transition"
+              >
+                <InstagramIcon />
+                Instagram
               </a>
               <span className="hover:text-white cursor-pointer transition">Privacy Policy</span>
               <span className="hover:text-white cursor-pointer transition">Terms of Service</span>

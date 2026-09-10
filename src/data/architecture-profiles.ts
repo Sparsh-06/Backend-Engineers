@@ -246,6 +246,124 @@ export const architectureProfiles: ArchitectureProfile[] = [
       "Stripe Engineering Blog - Sorbet, a type checker for Ruby",
     ],
   },
+  {
+    slug: "airbnb",
+    company: "Airbnb",
+    logo: "/logos/airbnb.svg",
+    tagline: "Breaking apart a Ruby on Rails monolith without breaking the business",
+    problem:
+      "Airbnb's original Ruby on Rails monolith let a small team move fast in the early days, but as the company and engineering org grew, that same monolith became the thing slowing everyone down - every team's code lived in one repository, one deploy pipeline, and one runtime, so a change anywhere could break something everywhere.",
+    scaleContext:
+      "Airbnb runs a global marketplace connecting millions of hosts and guests across a huge number of listings worldwide, with a large engineering organization that outgrew what a single shared codebase and deploy process could support - the technical challenge was less about raw request volume and more about how many engineers could safely ship changes to the same system at once.",
+    seoKeywords: [
+      "how does airbnb scale",
+      "airbnb tech stack",
+      "airbnb architecture explained",
+      "airbnb service-oriented architecture",
+      "airbnb monolith to microservices",
+      "airbnb apache airflow",
+      "airbnb engineering blog",
+      "airbnb system design",
+      "what database does airbnb use",
+      "airbnb kubernetes migration",
+    ],
+    techStack: [
+      { name: "Ruby on Rails", category: "Backend framework (core)", whatItsFor: "Airbnb's original monolith, and still a significant part of its backend today, is built on Ruby on Rails - chosen in the company's early days for how quickly it let a small team ship a working product." },
+      { name: "Thrift", category: "Service communication (RPC)", whatItsFor: "As Airbnb split its monolith into services, it adopted Thrift to define and call APIs between those services - a way for one internal service to call another with a strongly typed contract instead of loosely-defined HTTP calls." },
+      { name: "Apache Airflow", category: "Workflow orchestration (built in-house)", whatItsFor: "A tool Airbnb built internally to schedule and monitor complex data pipelines - many small jobs with dependencies between them - and later open-sourced; it's since become one of the most widely used workflow schedulers in the industry." },
+      { name: "Druid", category: "Real-time analytics datastore", whatItsFor: "Used for dashboards and analytics that need to query very large volumes of event data with low latency, where a traditional data warehouse would be too slow to query interactively." },
+      { name: "Kubernetes", category: "Container orchestration", whatItsFor: "Airbnb migrated its service infrastructure onto Kubernetes, moving away from earlier in-house deployment tooling, to get a more standard, community-supported way of scheduling and scaling its large number of services." },
+      { name: "MySQL", category: "Primary relational database", whatItsFor: "Airbnb's core transactional data - listings, bookings, users - has long lived in MySQL, sharded and scaled as the company grew rather than replaced outright." },
+      { name: "Java", category: "Backend language (newer services)", whatItsFor: "Used for a number of newer backend services built after the move away from a single Rails codebase, particularly infrastructure-facing services where the JVM's performance and tooling ecosystem were a better fit than Ruby." },
+      { name: "Kafka", category: "Event streaming", whatItsFor: "Moves event data - bookings, search activity, pricing changes - between services and into the data pipelines that feed tools like Airflow and Druid, without every producer and consumer needing to be directly connected." },
+    ],
+    approach: [
+      {
+        heading: "Extracting services from the monolith, deliberately and incrementally",
+        body: "Airbnb has written extensively about the multi-year effort to pull functionality out of its original Rails monolith into independently deployable services, using Thrift to define clear contracts between them. Rather than a rewrite, the publicly documented approach was incremental extraction - identifying a bounded piece of functionality, building it as a standalone service, and migrating callers over to it while the monolith kept running everything else. The stated goal wasn't microservices as an end in itself, but letting more engineers ship changes safely and independently without waiting on a single shared codebase's deploy queue.",
+      },
+      {
+        heading: "Building Apache Airflow because the right tool didn't exist yet",
+        body: "As Airbnb's data pipelines grew more complex - many small jobs with dependencies on each other, needing to run on a schedule and be monitored for failure - the company built Apache Airflow internally, then open-sourced it. Airflow represents pipelines as a directed graph of tasks, so a failure in one step can be retried or alerted on without silently corrupting everything downstream. It's since become one of the most widely adopted data orchestration tools outside Airbnb entirely, which is a useful signal that the underlying problem - scheduling and monitoring interdependent data jobs reliably - is a genuinely common one, not unique to Airbnb.",
+      },
+      {
+        heading: "Standardizing infrastructure on Kubernetes",
+        body: "Airbnb has documented moving its service infrastructure onto Kubernetes, replacing earlier custom deployment and scheduling tooling built in-house. The stated motivation in their public writing is consistency and reduced maintenance burden - running on a widely adopted, actively developed open-source scheduler instead of continuing to maintain bespoke internal tooling that only Airbnb's own infrastructure team understood.",
+      },
+      {
+        heading: "Treating the migration itself as an engineering problem",
+        body: "A recurring theme in Airbnb's public engineering writing about the SOA migration is that the transition process itself needed careful engineering - tooling to run old and new code paths side by side, ways to verify a new service produced the same results as the code it was replacing, and a gradual rollout rather than a single cutover. The lesson emphasized repeatedly is that a large-scale architectural migration is itself a project that needs its own safety mechanisms, not just a destination to reach.",
+      },
+    ],
+    microservicesNote:
+      "Airbnb's backend today is a mix of its original Ruby on Rails monolith (still handling a meaningful share of functionality) and a growing number of independently deployable services - many in Java - extracted from it over several years, communicating over Thrift-defined APIs and scheduled on Kubernetes rather than the monolith's original deployment process.",
+    takeaway:
+      "Airbnb's public engineering writing is less about a single clever technology and more about how to migrate a large, business-critical monolith into services without stopping the business - incrementally, with tooling built specifically to make the migration itself safe.",
+    sources: [
+      "Airbnb Engineering Blog - migrating to a service-oriented architecture",
+      "Airbnb Engineering Blog - building and open-sourcing Apache Airflow",
+      "Airbnb Engineering Blog - building Airbnb's Kubernetes infrastructure",
+    ],
+  },
+  {
+    slug: "spotify",
+    company: "Spotify",
+    logo: "/logos/spotify.svg",
+    tagline: "Hundreds of autonomous services, and the cloud migration that took years",
+    problem:
+      "Spotify runs a real-time streaming product for a huge global user base, backed by hundreds of independently owned backend services - the architectural challenge isn't one hard technical problem, it's keeping that many services, owned by that many small autonomous teams, reliable and consistent at once.",
+    scaleContext:
+      "Spotify serves a large global base of listeners simultaneously streaming audio, backed by a backend built from several hundred microservices - and for years that backend ran primarily on Spotify's own data centers before a deliberate, multi-year migration moved nearly all of it onto Google Cloud Platform.",
+    seoKeywords: [
+      "how does spotify scale",
+      "spotify tech stack",
+      "spotify architecture explained",
+      "spotify microservices",
+      "spotify google cloud migration",
+      "spotify backend for frontend",
+      "spotify engineering blog",
+      "spotify system design",
+      "what database does spotify use",
+      "spotify squad model",
+    ],
+    techStack: [
+      { name: "Java", category: "Backend language (core)", whatItsFor: "The primary language for the large majority of Spotify's backend services, chosen for its mature tooling and performance characteristics across a very large number of independently run services." },
+      { name: "Python", category: "Backend language (data & tooling)", whatItsFor: "Used across a number of Spotify's data engineering and internal tooling services, alongside Java, particularly where rapid iteration mattered more than raw runtime performance." },
+      { name: "Google Cloud Platform", category: "Cloud provider", whatItsFor: "The destination of Spotify's multi-year migration off its own data centers - compute, storage, and managed services that Spotify's infrastructure teams no longer have to run and maintain themselves." },
+      { name: "Cassandra", category: "Database", whatItsFor: "Used across a number of Spotify's services for data that needs to be written and read at high volume with availability prioritized over strict consistency, similar to its role at other large-scale streaming and social platforms." },
+      { name: "Google Cloud Pub/Sub", category: "Event delivery / messaging", whatItsFor: "Part of Spotify's event delivery system after its cloud migration, used to move events - like a play, a skip, a follow - between services asynchronously, replacing earlier in-house messaging infrastructure built for its own data centers." },
+      { name: "Apache Beam / Scio", category: "Data processing", whatItsFor: "Scio is a Scala API for Apache Beam that Spotify built and open-sourced, used to write the large-scale data processing pipelines - like the ones behind Spotify's personalized playlists - that need to run the same logic over both real-time streams and historical batch data." },
+      { name: "Docker", category: "Containerization", whatItsFor: "Spotify's backend services run as containers, packaged consistently regardless of which underlying language or team built them, which is what made a uniform deployment and scheduling story across hundreds of independently owned services possible in the first place." },
+      { name: "Kubernetes (Google Kubernetes Engine)", category: "Container orchestration", whatItsFor: "Following the move to Google Cloud, Spotify runs much of its service fleet on GKE, scheduling and scaling containers across the cloud infrastructure it migrated onto rather than infrastructure it operates itself." },
+    ],
+    approach: [
+      {
+        heading: "A multi-year migration off self-managed data centers",
+        body: "Spotify has published extensively about moving its backend off infrastructure it ran itself and onto Google Cloud Platform - a migration the company has been open about taking several years, service by service, rather than as a single cutover. The publicly stated motivation was letting engineering teams focus on product logic instead of operating physical infrastructure, and getting access to managed services (storage, messaging, data processing) instead of building and maintaining equivalents in-house indefinitely.",
+      },
+      {
+        heading: "Backend for Frontend: one API layer per client, not one API for everyone",
+        body: "Spotify is one of the most frequently cited examples of the Backend for Frontend (BFF) pattern - building a dedicated backend API layer tailored to each client surface (mobile, desktop, web) instead of forcing every client to consume one generic, shared API. The reasoning documented in their engineering writing is that a mobile client and a desktop client often need meaningfully different data shapes and call patterns, and a single generic API ends up compromising for all of them rather than serving any one well.",
+      },
+      {
+        heading: "Rebuilding event delivery around managed cloud messaging",
+        body: "As part of the cloud migration, Spotify's engineering blog has documented rebuilding its event delivery system - the pipeline that moves events like plays, skips, and follows between services and into analytics - around Google Cloud Pub/Sub, replacing earlier infrastructure that had been built for Spotify's own data centers. The stated challenge wasn't just swapping one message broker for another; it meant re-examining assumptions the old system had made about ordering, delivery guarantees, and scale that didn't automatically carry over to the new platform.",
+      },
+      {
+        heading: "Squads: small, autonomous teams that own their services end to end",
+        body: "Spotify's well-known 'squad' model - small, cross-functional teams with end-to-end ownership of a specific piece of the product - is as much an organizational structure as a technical one, but the two are directly connected: hundreds of independently deployable services only work well if each one has a clear, accountable owner. A squad owning a service means that team decides its architecture, its on-call rotation, and its release schedule, rather than changes needing sign-off from a central team that owns everything.",
+      },
+    ],
+    microservicesNote:
+      "Spotify's backend is built from several hundred independently deployable microservices, primarily in Java with some in Python, each owned end to end by a small 'squad,' packaged as Docker containers and scheduled on Kubernetes - a structure that only works because ownership boundaries are as clearly defined organizationally as they are technically.",
+    takeaway:
+      "Spotify's public engineering writing keeps circling back to the same idea from two directions - technically, hundreds of small services instead of one large one; organizationally, hundreds of small autonomous teams instead of one large one - and treats the two as inseparable, not as a technical decision made independently of how the teams themselves are structured.",
+    sources: [
+      "Spotify Engineering Blog - Spotify's journey to the cloud",
+      "Spotify Engineering Blog - event delivery, from on-prem to Google Cloud Pub/Sub",
+      "Spotify Engineering - open-sourcing Scio, a Scala API for Apache Beam",
+    ],
+  },
 ];
 
 export function getArchitectureProfile(slug: string) {

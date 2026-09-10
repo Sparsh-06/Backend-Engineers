@@ -27,6 +27,8 @@ type TopicDetailProps = {
   content?: ReactNode | null;
   /** Headings extracted from the markdown, used for the right sidebar ToC. */
   markdownToc?: TocEntry[];
+  /** How many interview-prep questions exist for this topic, if any. */
+  interviewQuestionCount?: number;
 };
 
 
@@ -90,6 +92,7 @@ export default function TopicDetail(props: TopicDetailProps) {
     image,
     content,
     markdownToc = [],
+    interviewQuestionCount = 0,
   } = props;
 
   const hasMarkdown = Boolean(content);
@@ -329,6 +332,25 @@ export default function TopicDetail(props: TopicDetailProps) {
                 </>
               )}
             </div>
+
+            {interviewQuestionCount > 0 && (
+              <div className="mt-10 flex flex-col gap-3 rounded-2xl border border-black/12 bg-[#f7f3ee] p-6 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#ff4d00]">
+                    Interview prep
+                  </p>
+                  <p className="mt-1.5 text-sm text-black/65">
+                    This topic comes up in interviews - {interviewQuestionCount} questions, leveled by role.
+                  </p>
+                </div>
+                <Link
+                  href={`/interview-prep#${slug}`}
+                  className="shrink-0 rounded-full bg-black px-5 py-2.5 text-xs font-semibold text-[#EEE9E3] transition hover:bg-[#ff4d00]"
+                >
+                  See the questions →
+                </Link>
+              </div>
+            )}
           </article>
 
           {/* Right sidebar - table of contents */}

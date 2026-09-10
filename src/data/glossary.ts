@@ -36,6 +36,18 @@ export const glossaryTerms: GlossaryTerm[] = [
     relatedTopicSlug: "backend-components",
   },
   {
+    term: "CAP theorem",
+    slug: "cap-theorem",
+    definition:
+      "The rule that a distributed system can't guarantee Consistency, Availability, and Partition tolerance all at once during a network split - it has to give one up. Partition tolerance usually isn't optional, so in practice the real choice is between consistency and availability.",
+  },
+  {
+    term: "Circuit breaker",
+    slug: "circuit-breaker",
+    definition:
+      "A safeguard that stops calling a dependency after it fails too many times, failing fast instead of piling up retries against something that's already down. It closes again on its own once the dependency looks healthy.",
+  },
+  {
     term: "Client-server model",
     slug: "client-server-model",
     definition:
@@ -43,11 +55,42 @@ export const glossaryTerms: GlossaryTerm[] = [
     relatedTopicSlug: "client-server-model",
   },
   {
+    term: "Cold start",
+    slug: "cold-start",
+    definition:
+      "The extra delay a serverless function or freshly started process takes on its first request, because the runtime has to initialize before any real work happens. Later ('warm') requests skip that cost.",
+  },
+  {
     term: "Concurrency",
     slug: "concurrency",
     definition:
       "Multiple tasks in progress at once, not necessarily happening at the exact same instant - like juggling several conversations by switching between them. Different from parallelism, which means truly simultaneous.",
     relatedTopicSlug: "sync-vs-async",
+  },
+  {
+    term: "Connection pooling",
+    slug: "connection-pooling",
+    definition:
+      "Reusing a small set of already-open database connections across many requests, instead of opening and closing a new one every time - opening a connection is far more expensive than using one that's already there.",
+  },
+  {
+    term: "Consensus",
+    slug: "consensus",
+    definition:
+      "How a group of machines agree on a single value or decision even when some of them might be slow, unreachable, or lying about their state. The hard problem underneath things like leader election and distributed locks.",
+  },
+  {
+    term: "Consistent hashing",
+    slug: "consistent-hashing",
+    definition:
+      "A way of mapping keys to servers so that adding or removing one server only reshuffles a small fraction of keys, not nearly all of them. What makes it practical to grow or shrink a cache or shard set without a mass migration.",
+    relatedTopicSlug: "consistent-hashing",
+  },
+  {
+    term: "Dead letter queue",
+    slug: "dead-letter-queue",
+    definition:
+      "A holding queue for messages that failed processing too many times, so a broken message isn't retried forever or silently dropped - it gets set aside for a human or a separate process to look at.",
   },
   {
     term: "DNS",
@@ -64,11 +107,29 @@ export const glossaryTerms: GlossaryTerm[] = [
     relatedTopicSlug: "nodejs-event-loop",
   },
   {
+    term: "Eventual consistency",
+    slug: "eventual-consistency",
+    definition:
+      "A guarantee that if no new writes happen, every replica of the data will eventually agree - just not necessarily the instant a write happens. The tradeoff distributed systems make for speed and availability over always being perfectly up to date.",
+  },
+  {
+    term: "Feature flag",
+    slug: "feature-flag",
+    definition:
+      "A toggle that turns a piece of functionality on or off without a new deploy, used to roll out changes gradually, run experiments, or kill a broken feature instantly.",
+  },
+  {
     term: "Garbage collection",
     slug: "garbage-collection",
     definition:
       "The automatic process of reclaiming memory that's no longer reachable by any part of a running program, so developers don't have to manually free it. A memory leak happens when code keeps a reference to something it's actually done with.",
     relatedTopicSlug: "nodejs-gc",
+  },
+  {
+    term: "Horizontal scaling",
+    slug: "horizontal-scaling",
+    definition:
+      "Handling more load by adding more machines running the same code, instead of making one machine bigger (vertical scaling). Usually the more sustainable path at real scale, but it only works if no server is the only place holding unique state.",
   },
   {
     term: "Idempotency",
@@ -83,6 +144,12 @@ export const glossaryTerms: GlossaryTerm[] = [
     definition:
       "How long one specific operation takes to complete, from request to response. Different from throughput, which measures total work done over time - a system can be excellent at one and mediocre at the other.",
     relatedTopicSlug: "latency-vs-throughput",
+  },
+  {
+    term: "Leader election",
+    slug: "leader-election",
+    definition:
+      "The process a distributed system uses to pick one node to coordinate a task - like accepting writes - and to automatically pick a new one if that node disappears.",
   },
   {
     term: "Load balancer",
@@ -105,6 +172,12 @@ export const glossaryTerms: GlossaryTerm[] = [
     relatedTopicSlug: "what-is-middleware",
   },
   {
+    term: "Observability",
+    slug: "observability",
+    definition:
+      "The ability to understand what's happening inside a running system from what it outputs - logs, metrics, and traces - without having to guess or reproduce the problem locally.",
+  },
+  {
     term: "P99 latency",
     slug: "p99-latency",
     definition:
@@ -116,6 +189,12 @@ export const glossaryTerms: GlossaryTerm[] = [
     slug: "rate-limiting",
     definition:
       "Deliberately capping how many requests a client can make in a given time window, to keep a shared system fair and stable instead of letting one client's traffic degrade it for everyone else.",
+  },
+  {
+    term: "Replication",
+    slug: "replication",
+    definition:
+      "Keeping copies of the same data on multiple machines, so a single disk or server failing doesn't mean the data is gone, and reads can be spread across more than one place.",
   },
   {
     term: "Sharding",
@@ -157,6 +236,12 @@ export const glossaryTerms: GlossaryTerm[] = [
     definition:
       "A separate JavaScript thread inside the same process, used to run CPU-heavy work without freezing the main event loop. Different from spinning up more processes (Cluster), which duplicates the whole app instead.",
     relatedTopicSlug: "nodejs-worker-threads",
+  },
+  {
+    term: "Write-ahead log",
+    slug: "write-ahead-log",
+    definition:
+      "A durability trick where a database writes down what it's about to do, in an append-only log, before actually changing anything - so after a crash it can replay the log and recover exactly where it left off.",
   },
 ];
 

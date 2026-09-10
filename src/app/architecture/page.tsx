@@ -17,6 +17,8 @@ export const metadata: Metadata = {
     "uber tech stack",
     "discord tech stack",
     "stripe tech stack",
+    "airbnb tech stack",
+    "spotify tech stack",
     "what tech stack do big companies use",
     "backend architecture case studies",
   ],

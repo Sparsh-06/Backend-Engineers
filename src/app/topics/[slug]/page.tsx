@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import TopicDetail from "@/modules/layouts/topic-detail";
 import { getTopicBySlug, getTopicGroupBySlug, topicGroupsFlat } from "@/data/topics";
 import { getTopicContent, type TocEntry } from "@/lib/markdown";
+import { getQuestionsByTopic } from "@/data/interview-questions";
 
 type Params = {
   slug: string;
@@ -169,6 +170,7 @@ export default async function TopicPage({
         image={articleImage}
         content={markdown?.content ?? null}
         markdownToc={markdownToc}
+        interviewQuestionCount={getQuestionsByTopic(topic.slug).length}
       />
     </>
   );
