@@ -59,8 +59,7 @@ const script = `
   shadow.innerHTML =
     '<style>' +
     ':host{all:initial;}' +
-    '.be-card{all:unset;box-sizing:border-box;cursor:pointer;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;display:block;width:100%;max-width:280px;border:1px solid ' + border + ';border-radius:20px;background:' + bg + ';padding:18px;text-decoration:none;transition:transform .15s ease,border-color .15s ease;}' +
-    '.be-card:hover{transform:translateY(-2px);border-color:' + accent + ';}' +
+    '.be-card{all:unset;box-sizing:border-box;cursor:pointer;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;display:block;width:100%;max-width:280px;border:1px solid ' + border + ';border-radius:20px;background:' + bg + ';padding:18px;text-decoration:none;}' +
     '.be-eyebrow{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:' + accent + ';margin:0 0 10px;}' +
     '.be-title{font-size:17px;font-weight:700;line-height:1.25;letter-spacing:-.02em;color:' + text + ';margin:0 0 8px;}' +
     '.be-body{font-size:12.5px;line-height:1.5;color:' + subtext + ';margin:0 0 14px;}' +
