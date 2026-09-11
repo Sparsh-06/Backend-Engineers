@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Script from "next/script";
+import AnalyticsBeacon from "@/modules/components/common/analytics-beacon";
 import "./globals.css";
 
 interface LayoutProps {
@@ -171,6 +172,7 @@ export default function RootLayout({ children }: LayoutProps) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
         />
         {children}
+        <AnalyticsBeacon />
 
         {/* Google Analytics */}
         <Script
