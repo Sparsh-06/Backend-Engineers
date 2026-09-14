@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getTopicBySlug } from "@/data/topics";
+import { getHowItWorksArticle } from "@/data/how-it-works";
 
 // Self-contained ad widget for partner sites. Ships as plain JS (not a
 // framework bundle) since it has to run inside a stranger's page with no
@@ -7,15 +7,17 @@ import { getTopicBySlug } from "@/data/topics";
 // clobbered by) the host page's CSS.
 const SITE_URL = "https://www.backendengineer.in";
 
-// Which lesson this widget promotes. The embed snippet a partner installs
-// never changes - swap this slug and redeploy to run a different lesson as
-// the ad, no coordination with the partner needed.
-const PROMOTED_TOPIC_SLUG = "lru-cache";
+// Which piece of content this widget promotes. The embed snippet a partner
+// installs never changes - swap this slug and redeploy to run something
+// else as the ad, no coordination with the partner needed. Currently
+// pointing at a Deep Dive rather than a curriculum lesson - broader,
+// catchier hook for a general audience than a DSA-specific topic.
+const PROMOTED_DEEP_DIVE_SLUG = "how-ad-blockers-work";
 
-const promotedTopic = getTopicBySlug(PROMOTED_TOPIC_SLUG);
-if (!promotedTopic) {
+const promotedArticle = getHowItWorksArticle(PROMOTED_DEEP_DIVE_SLUG);
+if (!promotedArticle) {
   throw new Error(
-    `/embed/ad.js: PROMOTED_TOPIC_SLUG "${PROMOTED_TOPIC_SLUG}" is not a published topic slug.`,
+    `/embed/card.js: PROMOTED_DEEP_DIVE_SLUG "${PROMOTED_DEEP_DIVE_SLUG}" is not a real Deep Dive slug.`,
   );
 }
 
@@ -23,10 +25,10 @@ function escapeHtml(input: string) {
   return input.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-const eyebrow = "Backend Engineering";
-const headline = escapeHtml(promotedTopic.title);
-const body = escapeHtml(promotedTopic.description);
-const landingPath = `/topics/${promotedTopic.slug}`;
+const eyebrow = "Deep Dive";
+const headline = escapeHtml(promotedArticle.title);
+const body = escapeHtml(promotedArticle.description);
+const landingPath = `/deep-dives/${promotedArticle.slug}`;
 
 const script = `
 (function () {
@@ -71,7 +73,7 @@ const script = `
       '<p class="be-eyebrow">${eyebrow}</p>' +
       '<h3 class="be-title">${headline}</h3>' +
       '<p class="be-body">${body}</p>' +
-      '<span class="be-cta">Read the lesson &rarr;</span>' +
+      '<span class="be-cta">Read how &rarr;</span>' +
       '<div class="be-brand"><span class="be-dot"></span>backendengineer.in</div>' +
     '</a>';
 
