@@ -70,9 +70,9 @@ const script = `
     '.be-dot{width:5px;height:5px;border-radius:50%;background:' + accent + ';flex:none;}' +
     '</style>' +
     '<a class="be-card" href="' + url.toString() + '" target="_blank" rel="noopener noreferrer sponsored">' +
-      '<p class="be-eyebrow">${eyebrow}</p>' +
-      '<h3 class="be-title">${headline}</h3>' +
-      '<p class="be-body">${body}</p>' +
+      '<p class="be-eyebrow">' + ${JSON.stringify(eyebrow)} + '</p>' +
+      '<h3 class="be-title">' + ${JSON.stringify(headline)} + '</h3>' +
+      '<p class="be-body">' + ${JSON.stringify(body)} + '</p>' +
       '<span class="be-cta">Read how &rarr;</span>' +
       '<div class="be-brand"><span class="be-dot"></span>backendengineer.in</div>' +
     '</a>';
