@@ -9,6 +9,17 @@ type Params = { slug: string };
 
 const siteName = "Backend Engineer";
 
+// project.description runs 180-220 characters - written for the page body,
+// not a search snippet - so Google truncates it mid-sentence in results.
+// Trim to a clean word boundary at the ~155 char mark it actually displays.
+function buildMetaDescription(description: string, maxLength = 155): string {
+  if (description.length <= maxLength) return description;
+  let snippet = description.slice(0, maxLength);
+  const lastSpace = snippet.lastIndexOf(" ");
+  if (lastSpace > 0) snippet = snippet.slice(0, lastSpace);
+  return `${snippet}…`;
+}
+
 export function generateStaticParams() {
   return buildProjects.map((project) => ({ slug: project.slug }));
 }
@@ -28,10 +39,11 @@ export async function generateMetadata({
   const title = project.title;
   const fullTitle = `${title} | ${siteName}`;
   const canonical = `/build/${slug}`;
+  const description = buildMetaDescription(project.description);
 
   return {
     title,
-    description: project.description,
+    description,
     keywords: project.keywords,
     alternates: { canonical },
     authors: [{ name: siteName }],
@@ -50,7 +62,7 @@ export async function generateMetadata({
     },
     openGraph: {
       title: fullTitle,
-      description: project.description,
+      description,
       type: "article",
       siteName,
       url: canonical,
@@ -58,7 +70,7 @@ export async function generateMetadata({
     twitter: {
       card: "summary_large_image",
       title: fullTitle,
-      description: project.description,
+      description,
     },
   };
 }

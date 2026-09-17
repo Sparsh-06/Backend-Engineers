@@ -39,7 +39,10 @@ export async function generateMetadata({
     return { title: "Profile not found" };
   }
 
-  const title = `How ${profile.company} Scaled Its Backend`;
+  // Matches how people actually search ("discord architecture", "netflix
+  // tech stack") more directly than the old "How X Scaled Its Backend"
+  // phrasing did - these pages were pulling real impressions but ~0% CTR.
+  const title = `${profile.company}'s Backend Architecture & Tech Stack`;
   const description = buildMetaDescription(profile.tagline, profile.problem);
   const canonical = `/architecture/${company}`;
 
