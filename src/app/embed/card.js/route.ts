@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getHowItWorksArticle } from "@/data/how-it-works";
+import { getArchitectureProfile } from "@/data/architecture-profiles";
 
 // Self-contained ad widget for partner sites. Ships as plain JS (not a
 // framework bundle) since it has to run inside a stranger's page with no
@@ -10,14 +10,15 @@ const SITE_URL = "https://www.backendengineer.in";
 // Which piece of content this widget promotes. The embed snippet a partner
 // installs never changes - swap this slug and redeploy to run something
 // else as the ad, no coordination with the partner needed. Currently
-// pointing at a Deep Dive rather than a curriculum lesson - broader,
-// catchier hook for a general audience than a DSA-specific topic.
-const PROMOTED_DEEP_DIVE_SLUG = "how-ad-blockers-work";
+// pointing at a company architecture profile - Discord's "millions of
+// concurrent WebSocket connections" hook is concrete and relatable even to
+// an audience that's never thought about backend scaling before.
+const PROMOTED_COMPANY_SLUG = "discord";
 
-const promotedArticle = getHowItWorksArticle(PROMOTED_DEEP_DIVE_SLUG);
-if (!promotedArticle) {
+const promotedProfile = getArchitectureProfile(PROMOTED_COMPANY_SLUG);
+if (!promotedProfile) {
   throw new Error(
-    `/embed/card.js: PROMOTED_DEEP_DIVE_SLUG "${PROMOTED_DEEP_DIVE_SLUG}" is not a real Deep Dive slug.`,
+    `/embed/card.js: PROMOTED_COMPANY_SLUG "${PROMOTED_COMPANY_SLUG}" is not a real architecture profile slug.`,
   );
 }
 
@@ -25,10 +26,10 @@ function escapeHtml(input: string) {
   return input.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-const eyebrow = "Deep Dive";
-const headline = escapeHtml(promotedArticle.title);
-const body = escapeHtml(promotedArticle.description);
-const landingPath = `/deep-dives/${promotedArticle.slug}`;
+const eyebrow = "Architecture";
+const headline = escapeHtml(`How ${promotedProfile.company} Scales to Millions of Users`);
+const body = escapeHtml(promotedProfile.tagline);
+const landingPath = `/architecture/${promotedProfile.slug}`;
 
 const script = `
 (function () {
